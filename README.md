@@ -1,23 +1,34 @@
 # AdaWorldAPI/HubSPO-rs
 
-**HubSpot Reverse Engineering** using the modern spear + lance-graph stack.
+**HubSpot Reverse Engineering** — reimagined on steroids using the modern spear stack.
 
-## Philosophy
+## Core Philosophy
 
-This repository is **not** a normal HubSpot connector.
+This is **not** a normal HubSpot connector or integration layer.
 
-It is a deep reverse-engineering effort to model HubSpot’s domain ontologically, using:
+**HubSPO-rs** follows the same approach as **Bardioc-rs** and **Hiro-rs**:
 
-- Palantir Foundry-style ontology modeling
-- `lance-graph` as the core graph + columnar storage layer
-- `spear` OGIT + OWL + DOLCE for strong semantic invariants
-- `ndarray` for analytical workloads
+1. **Deep 1:1 reverse engineering** of the original system to understand its real shape:
+   - Data model (objects, associations, properties, pipelines, timelines)
+   - Workload patterns and access shapes
+   - State machine / pipeline / rule behavior
+   - Concurrency and supervision needs
+
+2. **Reimagine it on steroids** using our modern stack:
+   - `lance-graph` + `ndarray` instead of JanusGraph + ClickHouse + Gremlin
+   - `Ractor` instead of OTP/BEAM
+   - `spear` OGIT + OWL + DOLCE for strong semantic invariants
+   - Much simpler, faster, more correct, and more powerful
+
+The goal is to **touch grass** — deeply understand what HubSpot actually does under the hood, then build something significantly better using our stack instead of trying to replicate the old architecture.
 
 ## Structure
 
-- `hubspo-ontology` — Core ontological modeling of HubSpot objects, associations, properties, and pipelines
-- `hubspo-graph` — lance-graph specific implementations and traversals
-- `hubspo-models` — Strongly typed domain models aligned with OGIT/OWL/DOLCE
-- `hubspo-engine` — Reverse-engineered business logic and behavior
-- `hubspo-compatibility` — Thin layer to talk to real HubSpot APIs (for validation & comparison)
-- `hubspo-invariants` — OWL/DOLCE-style invariants and validation rules
+| Crate                    | Purpose                                              |
+|--------------------------|------------------------------------------------------|
+| `hubspo-ontology`        | Core ontological modeling of HubSpot domain          |
+| `hubspo-graph`           | lance-graph implementation + traversals              |
+| `hubspo-models`          | Strongly typed models (OGIT/OWL/DOLCE aligned)       |
+| `hubspo-engine`          | Reverse-engineered business logic & behavior         |
+| `hubspo-compatibility`   | Thin adapter to real HubSpot APIs (validation only)  |
+| `hubspo-invariants`      | OWL/DOLCE-style semantic invariants & validation     |
