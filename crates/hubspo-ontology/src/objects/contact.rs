@@ -9,7 +9,7 @@ pub struct Contact {
 }
 
 impl Contact {
-    pub fn nou(id: &str) -> Self {
+    pub fn new(id: &str) -> Self {
         Self {
             id: id.to_string(),
             properties: vec![],
