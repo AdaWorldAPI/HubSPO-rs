@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "crates/hubspo-ontology",
+    "crates/hubspo-graph",
+    "crates/hubspo-models",
+    "crates/hubspo-engine",
+    "crates/hubspo-compatibility",
+    "crates/hubspo-invariants",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
