@@ -155,6 +155,51 @@ async fn scope_take(ds: &Dataset, mask: &[u64]) -> i64 {
     i32s(&b, 0).iter().map(|&v| v as i64).sum()
 }
 
+/// Word-wise masked sum over one decoded column starting at row `base`:
+/// a zero word skips 64 rows, a full word sums them unmasked, any other
+/// word selects branchlessly. Rows that do not start on a word boundary
+/// fall back to the per-row path.
+fn masked_sum(values: &[i32], base: usize, mask: &[u64]) -> i64 {
+    if base % 64 != 0 {
+        return values
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| {
+                let r = base + i;
+                (v as i64) & -(((mask[r >> 6] >> (r & 63)) & 1) as i64)
+            })
+            .sum();
+    }
+    let mut total = 0i64;
+    for (k, chunk) in values.chunks(64).enumerate() {
+        let word = mask[(base >> 6) + k];
+        total += match word {
+            0 => 0,
+            u64::MAX => chunk.iter().map(|&v| v as i64).sum::<i64>(),
+            w => chunk
+                .iter()
+                .enumerate()
+                .map(|(j, &v)| (v as i64) & -(((w >> j) & 1) as i64))
+                .sum::<i64>(),
+        };
+    }
+    total
+}
+
+fn plain_sum(values: &[i32]) -> i64 {
+    values.iter().map(|&v| v as i64).sum()
+}
+
+async fn scope_mask_words(ds: &Dataset, mask: &[u64]) -> i64 {
+    let mut base = 0usize;
+    let mut total = 0i64;
+    for b in scan(ds, &["amount"]).await {
+        total += masked_sum(i32s(&b, 0), base, mask);
+        base += b.num_rows();
+    }
+    total
+}
+
 /// Median and interquartile range of `arm[i] / base[i] - 1`, in percent.
 fn overhead(arm: &[f64], base: &[f64]) -> String {
     let mut r: Vec<f64> = arm
@@ -202,7 +247,10 @@ async fn main() {
     println!(
         "P-AUTH-1: {rows} rows, {OWNERS} owners, fold = sum(amount); {RUNS} interleaved iterations; overhead median [p25, p75]"
     );
-    println!("scope | share | unscoped ms | owner check | scope mask | branchless mask | take");
+    println!(
+        "scope | share | unscoped ms | owner check | scope mask | branchless mask | word mask | take | kernel only: plain ms / word mask ms"
+    );
+    let decoded = scan(&ds, &["amount"]).await;
     let scopes: [(&str, Box<dyn Fn(u32) -> bool>); 3] = [
         ("everything", Box::new(|_| true)),
         ("team-owned", Box::new(|o| o < 200)),
@@ -223,8 +271,9 @@ async fn main() {
         let all: i64 = (0..rows).map(|r| amount(r) as i64).sum();
         let sparse = kept * 20 < rows;
 
-        let (mut t_u, mut t_o, mut t_m, mut t_b, mut t_t) =
-            (vec![], vec![], vec![], vec![], vec![]);
+        let (mut t_u, mut t_o, mut t_m, mut t_b, mut t_t, mut t_w) =
+            (vec![], vec![], vec![], vec![], vec![], vec![]);
+        let (mut k_p, mut k_w) = (vec![], vec![]);
         for _ in 0..RUNS {
             let t = Instant::now();
             assert_eq!(unscoped(&ds).await, all, "unscoped");
@@ -242,6 +291,24 @@ async fn main() {
                 "branchless mask"
             );
             t_b.push(t.elapsed().as_secs_f64() * 1e3);
+            let t = Instant::now();
+            assert_eq!(scope_mask_words(&ds, &mask).await, want, "word mask");
+            t_w.push(t.elapsed().as_secs_f64() * 1e3);
+
+            let t = Instant::now();
+            let p: i64 = decoded.iter().map(|b| plain_sum(i32s(b, 0))).sum();
+            k_p.push(t.elapsed().as_secs_f64() * 1e3);
+            assert_eq!(p, all, "kernel plain");
+            let t = Instant::now();
+            let mut base = 0usize;
+            let mut w = 0i64;
+            for b in &decoded {
+                w += masked_sum(i32s(b, 0), base, &mask);
+                base += b.num_rows();
+            }
+            k_w.push(t.elapsed().as_secs_f64() * 1e3);
+            assert_eq!(w, want, "kernel word mask");
+
             if sparse {
                 let t = Instant::now();
                 assert_eq!(scope_take(&ds, &mask).await, want, "take");
@@ -254,12 +321,15 @@ async fn main() {
             "—".to_string()
         };
         println!(
-            "{name} | {:.1}% | {:.2} | {} | {} | {} | {take}",
+            "{name} | {:.1}% | {:.2} | {} | {} | {} | {} | {take} | {:.2} / {:.2}",
             100.0 * kept as f64 / rows as f64,
             median(t_u.clone()),
             overhead(&t_o, &t_u),
             overhead(&t_m, &t_u),
             overhead(&t_b, &t_u),
+            overhead(&t_w, &t_u),
+            median(k_p),
+            median(k_w),
         );
     }
 }
