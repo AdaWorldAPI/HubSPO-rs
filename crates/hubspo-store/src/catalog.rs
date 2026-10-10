@@ -186,7 +186,7 @@ impl Registrar for Catalog {
         }
         // Lanes are 4-byte (`U32` / `I32`); a width that is not a whole
         // number of lanes has no layout here.
-        if width % 4 != 0 {
+        if !width.is_multiple_of(4) {
             return Err(RegisterError::Refused {
                 table: name.into(),
                 width,

@@ -247,22 +247,18 @@ pub fn compile(
                 live_mask,
                 &|lit| binder.code(table, field.col, lit),
             )?;
-            if let (Some(valid), true) = (field.validity, reads_value(f.operator)) {
-                if !nullable.contains(&(field.col, valid)) {
-                    nullable.push((field.col, valid));
-                }
+            // `sql_where` gates only comparison leaves, so listing a
+            // property that only a presence filter reads changes nothing.
+            if let Some(valid) = field.validity
+                && !nullable.contains(&(field.col, valid))
+            {
+                nullable.push((field.col, valid));
             }
             leaves.push(leaf);
         }
         alternatives.push(Filter::and(leaves));
     }
     Ok(Filter::and([live, Filter::or(alternatives)]).sql_where(&nullable))
-}
-
-/// Whether the operator compares the value lane (and so is three-valued over
-/// a nullable property). The presence operators read only the validity plane.
-fn reads_value(op: Operator) -> bool {
-    !matches!(op, Operator::HasProperty | Operator::NotHasProperty)
 }
 
 fn compile_one(
