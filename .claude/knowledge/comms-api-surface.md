@@ -46,7 +46,7 @@ P-QDB-1 (§5) proves this end to end.
 | content store | `ContentStore::{put, get, exists}` (SHA-256, two-level dirs) | `src/content/mod.rs:179-203` | CODE |
 | SharePoint upload | `UploadIntent`, `DriveScope` types only; `transport/` empty | `src/sharepoint/transport/mod.rs:9-17` | DOC |
 | send receipts / activity tables | — | grep `send_receipt\|activity` over `src/` hits doc comments only | ABSENT |
-| thread id | column declared, always null (`FixedSizeBinary::new_null`) | `src/mail/ingest.rs:359` | ABSENT |
+| thread id | column declared, always null (`FixedSizeBinary::new_null`) | `src/mail/ingest.rs:192` | ABSENT |
 
 Not for HubSPO-rs reads:
 - `query::messages::MessageQuery` is a DataFusion `SessionContext` over a
