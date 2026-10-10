@@ -155,5 +155,5 @@
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
 | D-LOG-1 | Log record (`NodeDelta` body) + batch header `(topic, base_offset, record_count)`, RBAC-projected per consumer; zone 3 | M | Queued |  |
-| D-LOG-2 | Consumer offsets as `(consumer, last_version)` rows; replay over `VersionRange` | M | Queued |  |
+| D-LOG-2 | Consumer offsets as `(consumer, last_version)` rows; replay over `VersionRange` by fragment diff (not `delta()`) | M | Queued | P-LOG-1 passed 2026-10-10 |
 | D-LOG-3 | Optional `rdkafka` edge producing the same records to a Kafka topic | M | Queued |  |
