@@ -2,7 +2,8 @@
 //! append-only log, and a table is rebuilt by replaying it.
 //!
 //! The shape is P-SPARSE-1's delta: nothing is ever updated in place, so
-//! there are no deletion vectors to read and the log is safe to compact.
+//! there are no deletion vectors to read. It is never compacted: the
+//! append order is the version order, and readers rely on it.
 //! Each record is one fact of one batch:
 //!
 //! | `op` | meaning | `row` | `lane` | `present` / `value` |
@@ -26,27 +27,35 @@
 //! then applies it to the table. If the append fails the table is
 //! unchanged.
 //!
-//! Not yet: folding the log into a base dataset (D-STO-5, history), and
-//! object-store URIs beyond what `lance` resolves by itself.
+//! **History (D-STO-5)** is the log itself: [`Log::history`] reads one
+//! property of one record back as the list of writes that touched it.
+//!
+//! Not yet: an index on `row`, and object-store URIs beyond what `lance`
+//! resolves by itself.
 
 use std::sync::Arc;
 
 use arrow::array::{
-    Array, BooleanArray, RecordBatch, RecordBatchIterator, UInt8Array, UInt16Array, UInt32Array,
-    UInt64Array,
+    Array, BooleanArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use futures::TryStreamExt;
 use lance::Dataset;
 use lance::dataset::{WriteMode, WriteParams};
 use lance_graph_contract::collapse_gate::MailboxId;
-use lance_graph_quack::Col;
+use lance_graph_mask_risc::{
+    Foreign, LaneRef, Out, Planes, Scratch, execute_into, materialize_rows, words_for,
+};
+use lance_graph_quack::{Agg, Cmp, Col, Filter, Query, lower};
 
 use crate::table::{Applied, Batch, LaneKind, LaneSpec, StoreError, Table, Value};
 
-const BORN: u8 = 0;
-const SET: u8 = 1;
-const DELETE: u8 = 2;
+const BORN: u32 = 0;
+const SET: u32 = 1;
+const DELETE: u32 = 2;
+
+/// One decoded log record: `(version, owner, op, row, lane, present, value)`.
+type Fact = (u64, u32, u32, u32, u32, bool, u32);
 
 /// Why a log operation failed.
 #[derive(Debug)]
@@ -89,9 +98,9 @@ fn schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
         Field::new("version", DataType::UInt64, false),
         Field::new("owner", DataType::UInt32, false),
-        Field::new("op", DataType::UInt8, false),
+        Field::new("op", DataType::UInt32, false),
         Field::new("row", DataType::UInt32, false),
-        Field::new("lane", DataType::UInt16, false),
+        Field::new("lane", DataType::UInt32, false),
         Field::new("present", DataType::Boolean, false),
         Field::new("value", DataType::UInt32, false),
     ]))
@@ -101,20 +110,20 @@ fn schema() -> Arc<Schema> {
 struct Columns {
     version: Vec<u64>,
     owner: Vec<u32>,
-    op: Vec<u8>,
+    op: Vec<u32>,
     row: Vec<u32>,
-    lane: Vec<u16>,
+    lane: Vec<u32>,
     present: Vec<bool>,
     value: Vec<u32>,
 }
 
 impl Columns {
-    fn push(&mut self, version: u64, owner: u32, op: u8, row: u32, lane: u16, v: Option<Value>) {
+    fn push(&mut self, version: u64, owner: u32, op: u32, row: u32, lane: u16, v: Option<Value>) {
         self.version.push(version);
         self.owner.push(owner);
         self.op.push(op);
         self.row.push(row);
-        self.lane.push(lane);
+        self.lane.push(u32::from(lane));
         self.present.push(v.is_some());
         self.value.push(match v {
             Some(Value::U32(x)) => x,
@@ -129,9 +138,9 @@ impl Columns {
             vec![
                 Arc::new(UInt64Array::from(self.version)),
                 Arc::new(UInt32Array::from(self.owner)),
-                Arc::new(UInt8Array::from(self.op)),
+                Arc::new(UInt32Array::from(self.op)),
                 Arc::new(UInt32Array::from(self.row)),
-                Arc::new(UInt16Array::from(self.lane)),
+                Arc::new(UInt32Array::from(self.lane)),
                 Arc::new(BooleanArray::from(self.present)),
                 Arc::new(UInt32Array::from(self.value)),
             ],
@@ -158,6 +167,27 @@ fn encode(batch: &Batch, version: u64, first: u32) -> Columns {
         c.push(version, o, DELETE, row, 0, None);
     }
     c
+}
+
+/// What one write did to a property (D-STO-5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Change {
+    /// The property was set; `None` is absent (inserted without a value, or
+    /// cleared).
+    Set(Option<Value>),
+    /// The record was deleted. Ordinals are never reused, so nothing follows.
+    Deleted,
+}
+
+/// One entry of a property's history.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Entry {
+    /// The table version (= Lance version) the write landed in.
+    pub version: u64,
+    /// The mailbox the batch wrote on behalf of.
+    pub owner: MailboxId,
+    /// What the write did.
+    pub change: Change,
 }
 
 /// An append-only Lance log at `uri`.
@@ -230,6 +260,122 @@ impl Log {
         Ok(table.apply(batch)?)
     }
 
+    /// Every record of the log, in storage order.
+    async fn scan(&self) -> Result<Vec<RecordBatch>, LogError> {
+        let ds = Dataset::open(&self.uri).await.map_err(lance_err)?;
+        ds.scan()
+            .try_into_stream()
+            .await
+            .map_err(lance_err)?
+            .try_collect()
+            .await
+            .map_err(lance_err)
+    }
+
+    /// D-STO-5: the history of property `col` on record `row`, oldest first.
+    ///
+    /// Every write of the property is one [`Entry`]: the value given when the
+    /// record was inserted (absent included), every later update, and the
+    /// record's deletion. Each entry carries the version and the owner the
+    /// batch wrote on behalf of. Nothing is stored for history: it is the
+    /// log, read through one Quack program per Lance fragment batch,
+    /// `row = r AND ((lane = c AND op = SET) OR op = DELETE)`, run on
+    /// mask-risc over the log's own Arrow buffers (borrowed, not copied).
+    /// Only the matching records are decoded.
+    ///
+    /// The read scans the whole log. P-SPARSE-1 measured 16.9 ms for 1,000
+    /// versions with a BTree index on `row`; this version has no index, and
+    /// its cost is measured by `examples/probe_history.rs`.
+    ///
+    /// # Errors
+    ///
+    /// [`LogError::Corrupt`] if `col` is not a lane of `specs`, or a matching
+    /// record does not decode (an absent value in a required lane included),
+    /// and [`LogError::Lance`] if the scan fails.
+    pub async fn history(
+        &self,
+        specs: &[LaneSpec],
+        row: u32,
+        col: Col,
+    ) -> Result<Vec<Entry>, LogError> {
+        let spec = *specs
+            .get(usize::from(col.0))
+            .ok_or(LogError::Corrupt("lane"))?;
+        if self.latest().await? == 0 {
+            return Ok(Vec::new());
+        }
+        // Lanes of the program: 0 = row, 1 = lane, 2 = op.
+        let eq = |c: u16, v: u32| Filter::cmp(Col(c), Cmp::EqU32(v));
+        let program = lower(&Query {
+            filter: Filter::and([
+                eq(0, row),
+                Filter::or([
+                    Filter::and([eq(1, u32::from(col.0)), eq(2, SET)]),
+                    eq(2, DELETE),
+                ]),
+            ]),
+            agg: Agg::Rows,
+        })
+        .map_err(|_| LogError::Corrupt("history program"))?;
+        let mut entries = Vec::new();
+        for b in &self.scan().await? {
+            let n = b.num_rows();
+            if n == 0 {
+                continue;
+            }
+            let version = column::<UInt64Array>(b, 0, "version")?;
+            let owner = column::<UInt32Array>(b, 1, "owner")?;
+            let op = column::<UInt32Array>(b, 2, "op")?;
+            let rows = column::<UInt32Array>(b, 3, "row")?;
+            let lane = column::<UInt32Array>(b, 4, "lane")?;
+            let present = column::<BooleanArray>(b, 5, "present")?;
+            let value = column::<UInt32Array>(b, 6, "value")?;
+            let lanes = [
+                LaneRef::U32(rows.values()),
+                LaneRef::U32(lane.values()),
+                LaneRef::U32(op.values()),
+            ];
+            let planes = Planes {
+                n_rows: n,
+                masks: &[],
+                lanes: &lanes,
+            };
+            let mut hits = vec![0u64; words_for(n)];
+            let mut scratch = Scratch::for_program(&program, n)
+                .map_err(|_| LogError::Corrupt("history scratch"))?;
+            execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::Mask(&mut hits),
+            )
+            .map_err(|_| LogError::Corrupt("history program"))?;
+            for i in materialize_rows(&hits, n) {
+                let change = if op.value(i) == DELETE {
+                    Change::Deleted
+                } else if !present.value(i) && !spec.nullable {
+                    // Replay refuses this record (`Table::apply`); history
+                    // must not report a state the table can never hold.
+                    return Err(LogError::Corrupt("absent value in a required lane"));
+                } else {
+                    Change::Set(present.value(i).then_some(match spec.kind {
+                        LaneKind::U32 => Value::U32(value.value(i)),
+                        LaneKind::I32 => Value::I32(value.value(i).cast_signed()),
+                    }))
+                };
+                entries.push(Entry {
+                    version: version.value(i),
+                    owner: owner.value(i),
+                    change,
+                });
+            }
+        }
+        // No sort: the scan yields records in append order, which is version
+        // order and, within a version, written order.
+        Ok(entries)
+    }
+
     /// Rebuild the table of `owner` with `specs` from the log, batch by
     /// batch, through the same [`Table::apply`] a live writer uses.
     ///
@@ -246,22 +392,14 @@ impl Log {
         if latest == 0 {
             return Ok(table);
         }
-        let ds = Dataset::open(&self.uri).await.map_err(lance_err)?;
-        let batches: Vec<RecordBatch> = ds
-            .scan()
-            .try_into_stream()
-            .await
-            .map_err(lance_err)?
-            .try_collect()
-            .await
-            .map_err(lance_err)?;
-        let mut facts: Vec<(u64, u32, u8, u32, u16, bool, u32)> = Vec::new();
+        let batches = self.scan().await?;
+        let mut facts: Vec<Fact> = Vec::new();
         for b in &batches {
             let version = column::<UInt64Array>(b, 0, "version")?;
             let own = column::<UInt32Array>(b, 1, "owner")?;
-            let op = column::<UInt8Array>(b, 2, "op")?;
+            let op = column::<UInt32Array>(b, 2, "op")?;
             let row = column::<UInt32Array>(b, 3, "row")?;
-            let lane = column::<UInt16Array>(b, 4, "lane")?;
+            let lane = column::<UInt32Array>(b, 4, "lane")?;
             let present = column::<BooleanArray>(b, 5, "present")?;
             let value = column::<UInt32Array>(b, 6, "value")?;
             for i in 0..b.num_rows() {
@@ -276,8 +414,9 @@ impl Log {
                 ));
             }
         }
-        // Stable sort by version keeps each batch's facts in written order.
-        facts.sort_by_key(|f| f.0);
+        // No sort: records come back in append order, so each batch's facts
+        // are contiguous and in written order. A log out of order is caught
+        // below, as a batch whose version is not the next one.
         let mut i = 0;
         while i < facts.len() {
             let version = facts[i].0;
@@ -320,11 +459,7 @@ fn column<'a, T: Array + 'static>(
         .ok_or(LogError::Corrupt(name))
 }
 
-fn decode(
-    facts: &[(u64, u32, u8, u32, u16, bool, u32)],
-    owner: MailboxId,
-    table: &Table,
-) -> Result<Batch, LogError> {
+fn decode(facts: &[Fact], owner: MailboxId, table: &Table) -> Result<Batch, LogError> {
     let specs = table.specs();
     let first = u32::try_from(table.n_rows()).map_err(|_| StoreError::Full)?;
     let mut batch = Batch {
@@ -332,6 +467,7 @@ fn decode(
         ..Batch::default()
     };
     for &(_, own, op, row, lane, present, value) in facts {
+        let lane = u16::try_from(lane).map_err(|_| LogError::Corrupt("lane"))?;
         if own != owner {
             return Err(LogError::Owner {
                 expected: owner,

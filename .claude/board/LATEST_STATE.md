@@ -137,7 +137,27 @@
   append. Green, and kept on purpose: the post-append version check — it
   catches only a writer that appends between the check and the write, a
   race no sequential test can schedule.
-- Not yet: folding the log into a base dataset (D-STO-5), object stores.
+- Not yet: an index on `row`, object stores. The log is never compacted
+  (decision 2026-10-10): the append order is the version order.
+
+## Property history (D-STO-5, feature `lance`)
+
+- `Log::history(specs, row, col) -> Vec<Entry>`: every write of one
+  property on one record, oldest first — the inserted value (absent
+  included), each update, the deletion — each with its version and owner.
+  No history store: one Quack program per log batch,
+  `row = r ∧ ((lane = c ∧ op = SET) ∨ op = DELETE)`, on mask-risc over the
+  log's Arrow buffers (borrowed); only matches are decoded. The log's `op`
+  and `lane` columns widened to `u32` for this (no data existed yet).
+- Tests: for every record and both lanes over 30 random batches, the
+  history equals one written down from the batches (anti-vacuity: updates,
+  deletions, negative and absent values); unknown lane refused; empty log
+  reads empty. Disable runs 2026-10-10, red: drop the row term, drop the
+  DELETE arm, drop `op = SET`, lose the I32 sign. A sort by version was
+  inert under a disable run and is removed: append order is version order.
+  Replay dropped its sort too; a log out of order is still refused there,
+  as a batch whose version is not the next one.
+- Timing: fragmented log (1,001 fragments, 1.2M records): **336 ms**, of which the raw scan is 320 ms. Fails P-HIST-1's < 20 ms; the Quack program is 3–15 ms of it (release, `examples/probe_history.rs`, 7 reads, 2026-10-10). The scan, not the program, is the cost. Open: ISS-HIST-SCAN-COST.
 
 ## Board view (D-QRY-3, board half)
 

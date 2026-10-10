@@ -3,7 +3,7 @@
 //! a second writer, a foreign owner and a refused batch are all caught.
 #![cfg(feature = "lance")]
 
-use hubspo_store::log::{Log, LogError};
+use hubspo_store::log::{Change, Entry, Log, LogError};
 use hubspo_store::table::{Batch, LaneKind, LaneSpec, StoreError, Table, Value};
 use lance_graph_mask_risc::LaneRef;
 use lance_graph_quack::Col;
@@ -204,4 +204,164 @@ async fn replay_refuses_a_foreign_owner() {
         }
         other => panic!("expected Owner, got {:?}", other.map(|t| t.version())),
     }
+}
+
+/// D-STO-5: the history read back from the log equals the history written
+/// down independently from the batches, for every record and both lanes.
+#[tokio::test(flavor = "multi_thread")]
+async fn history_is_every_write_of_one_property_in_order() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let mut t = Table::new(OWNER, &SPECS).expect("table");
+    let mut r = Rng(0x0000_5157);
+    // Oracle: per (row, lane), the writes in order.
+    let mut want: std::collections::BTreeMap<(u32, u16), Vec<Entry>> = Default::default();
+    for _ in 0..30 {
+        let b = random_batch(&mut r, &t);
+        let first = t.n_rows() as u32;
+        let applied = log.commit(&mut t, &b).await.expect("commit");
+        let e = |change| Entry {
+            version: applied.version,
+            owner: OWNER,
+            change,
+        };
+        for (row, record) in (first..).zip(&b.inserts) {
+            for (lane, v) in (0u16..).zip(record) {
+                want.entry((row, lane))
+                    .or_default()
+                    .push(e(Change::Set(*v)));
+            }
+        }
+        for &(row, col, v) in &b.updates {
+            want.entry((row, col.0))
+                .or_default()
+                .push(e(Change::Set(v)));
+        }
+        for &row in &b.deletes {
+            for lane in 0..2 {
+                want.entry((row, lane))
+                    .or_default()
+                    .push(e(Change::Deleted));
+            }
+        }
+    }
+    for row in 0..t.n_rows() as u32 {
+        for lane in 0..2u16 {
+            let got = log.history(&SPECS, row, Col(lane)).await.expect("history");
+            let exp = want.get(&(row, lane)).cloned().unwrap_or_default();
+            assert_eq!(got, exp, "row {row} lane {lane}");
+        }
+    }
+    // A row that does not exist has no history.
+    let none = log
+        .history(&SPECS, t.n_rows() as u32 + 5, Col(0))
+        .await
+        .expect("history");
+    assert!(none.is_empty());
+    // Anti-vacuity: histories with updates, with a deletion, and with a
+    // negative value were compared.
+    let all: Vec<&Entry> = want.values().flatten().collect();
+    assert!(want.values().any(|h| h.len() >= 3));
+    assert!(all.iter().any(|e| e.change == Change::Deleted));
+    assert!(
+        all.iter()
+            .any(|e| matches!(e.change, Change::Set(Some(Value::I32(x))) if x < 0))
+    );
+    assert!(all.iter().any(|e| e.change == Change::Set(None)));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn history_refuses_an_unknown_lane_and_reads_an_empty_log() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    assert!(
+        log.history(&SPECS, 0, Col(0))
+            .await
+            .expect("empty")
+            .is_empty()
+    );
+    let mut t = Table::new(OWNER, &SPECS).expect("table");
+    let mut r = Rng(0x0000_6A11);
+    let b = random_batch(&mut r, &t);
+    log.commit(&mut t, &b).await.expect("commit");
+    match log.history(&SPECS, 0, Col(2)).await {
+        Err(LogError::Corrupt("lane")) => {}
+        other => panic!("expected Corrupt(lane), got {other:?}"),
+    }
+}
+
+/// Append one raw record to the log, bypassing `commit` (a corrupt writer).
+async fn append_raw(uri: &str, version: u64, op: u32, row: u32, lane: u32, present: bool) {
+    use arrow::array::{BooleanArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Arc;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("version", DataType::UInt64, false),
+        Field::new("owner", DataType::UInt32, false),
+        Field::new("op", DataType::UInt32, false),
+        Field::new("row", DataType::UInt32, false),
+        Field::new("lane", DataType::UInt32, false),
+        Field::new("present", DataType::Boolean, false),
+        Field::new("value", DataType::UInt32, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(UInt64Array::from(vec![version])),
+            Arc::new(UInt32Array::from(vec![OWNER])),
+            Arc::new(UInt32Array::from(vec![op])),
+            Arc::new(UInt32Array::from(vec![row])),
+            Arc::new(UInt32Array::from(vec![lane])),
+            Arc::new(BooleanArray::from(vec![present])),
+            Arc::new(UInt32Array::from(vec![0u32])),
+        ],
+    )
+    .expect("batch");
+    let params = lance::dataset::WriteParams {
+        mode: lance::dataset::WriteMode::Append,
+        ..Default::default()
+    };
+    lance::Dataset::write(
+        RecordBatchIterator::new(vec![Ok(batch)], schema),
+        uri,
+        Some(params),
+    )
+    .await
+    .expect("append");
+}
+
+/// An absent value in a required lane is a state the table can never hold:
+/// replay refuses it, so history must too, rather than report `Set(None)`.
+#[tokio::test(flavor = "multi_thread")]
+async fn history_refuses_an_absent_value_in_a_required_lane() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let uri = dir.path().join("deals.lance");
+    let uri = uri.to_str().expect("utf8");
+    let log = Log::new(uri);
+    let mut t = Table::new(OWNER, &SPECS).expect("table");
+    let b = Batch {
+        owner: OWNER,
+        inserts: vec![vec![Some(Value::U32(1)), None]],
+        ..Batch::default()
+    };
+    log.commit(&mut t, &b).await.expect("commit");
+    // Silence half: the nullable lane's absent value is a valid history.
+    assert_eq!(
+        log.history(&SPECS, 0, Col(1)).await.expect("history"),
+        vec![Entry {
+            version: 1,
+            owner: OWNER,
+            change: Change::Set(None),
+        }]
+    );
+    // SET row 0, lane 0 (required), absent.
+    append_raw(uri, 2, 1, 0, 0, false).await;
+    match log.history(&SPECS, 0, Col(0)).await {
+        Err(LogError::Corrupt("absent value in a required lane")) => {}
+        other => panic!("expected Corrupt, got {other:?}"),
+    }
+    assert!(
+        log.replay(OWNER, &SPECS).await.is_err(),
+        "replay refuses it too"
+    );
 }

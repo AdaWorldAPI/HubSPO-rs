@@ -35,11 +35,11 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | In PR | resident half shipped (#22); persistence half in PR: `hubspo-store::log` (one Lance version per batch, replay, feature `lance`) |
+| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | Shipped | resident half #22; persistence half #23: `hubspo-store::log` (one Lance version per batch, replay, feature `lance`) |
 | D-STO-2 | KV value store for variable-length properties; zero-copy lens reads | M | Queued |  |
 | D-STO-3 | Edge lanes + association labels (H-ADR-4); cardinality invariants as Quack `GroupReduce` | L | Queued |  |
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | Queued | P-TEN-1 passed 2026-10-10 (7.8 ms p99 at 10k tenants, local disk) |
-| D-STO-5 | Property history via version log + P-HIST-1 probe | M | Queued | P-HIST-1 failed on in-place updates (46 ms); P-SPARSE-1 passes with the split-tunnel sparse delta: 16.9 ms indexed, 3.3–5.9 ms compacted |
+| D-STO-5 | Property history via version log + P-HIST-1 probe | M | In progress | read shipped in PR: `Log::history` (one Quack program per log batch, no index); fragmented log (1,001 fragments, 1.2M records): **336 ms**, of which the raw scan is 320 ms. Fails P-HIST-1's < 20 ms; the Quack program is 3–15 ms of it (release, `examples/probe_history.rs`, 7 reads, 2026-10-10). Budget open: ISS-HIST-SCAN-COST. P-HIST-1 failed on in-place updates (46 ms); P-SPARSE-1 passes with the split-tunnel sparse delta: 16.9 ms indexed, 3.3–5.9 ms compacted |
 | D-STO-6 | Importer (value oracle, part 1): sandbox portal → crm-sim plan → commit; counts compared per object type | L | Queued |  |
 
 ## Wave 3 — Query, lists, views, reports
