@@ -10,7 +10,7 @@
 >
 > **Substrate keys:**
 > LG = lance-graph (`contract` / `quack` / `mask-risc` / `report` /
-> `callcenter` / `supervisor` / `arm-discovery` / `deepnsm-v2`),
+> `callcenter` / `arm-discovery` / `deepnsm-v2`; no `supervisor`: ractor is deprecated),
 > OG = OGAR (`ogar-vocab` / `ogar-rbac` / `ogar-render-askama` /
 > `ogar-a2ui-frame` / `ogar-doc-ir` / `ogar-loco` / `ogar-dir-*`),
 > ND = ndarray (`simd` / `hpc`), SP = spear, ST = stalwart (out of process),
@@ -137,7 +137,7 @@
 | 4.2 | Help desk / shared inbox | channels into tickets | SP shared-inbox roles + ST JMAP; email → ticket ActionDef | D-MAIL-5, D-SVC-1 | v1 |
 | 4.3 | Live chat + chatbots | website chat into inbox | OGIT `CustomerSupport/{ChatSession,ChatMessage}`; WS endpoint | D-SVC-1 | v2 |
 | 4.4 | Ticket routing (round robin, skills) | | rules + rotation; spear D-ROUTE patterns | D-FLOW-5 | v1 |
-| 4.5 | SLAs (first response, close time) | timers + breach alerts | timer actors under supervisor; breach = event | D-FLOW-5 | v1 |
+| 4.5 | SLAs (first response, close time) | timers + breach alerts | `due_at` rows; breach = due mask over the published version (H-ADR-7) | D-FLOW-5 | v1 |
 | 4.6 | Knowledge base | articles + search | doc IR + Tantivy | D-SVC-2 | v2 |
 | 4.7 | Customer portal | customers view their tickets | RLS scoped to contact's company; auth via OIDC | D-SVC-2 | v2 |
 | 4.8 | Feedback surveys (NPS/CSAT/CES) | | OGIT `Survey/*`; responses → contact properties | D-SVC-1 | v2 |
@@ -159,10 +159,10 @@
 | # | HubSpot feature | How HubSpot behaves | Our design | D-id | Phase |
 |---|---|---|---|---|---|
 | 6.1 | Workflows (record-based) | trigger → actions → branches → delays | graph-flow graphs; gated ActionDefs | D-FLOW-1 | v1 |
-| 6.2 | Enrolment triggers (criteria, event, schedule, webhook) | | trigger actor on `LanceVersionWatcher`; mask delta ∩ criteria | D-FLOW-2 | v1 |
+| 6.2 | Enrolment triggers (criteria, event, schedule, webhook) | | mask delta between published versions ∩ criteria, read from a stored offset | D-FLOW-2 | v1 |
 | 6.3 | Re-enrolment | | per-workflow enrolment mask + version | D-FLOW-2 | v1 |
 | 6.4 | Branches (if/then, value equals, A/B) | | conditional edges = mask predicates | D-FLOW-1 | v1 |
-| 6.5 | Delays (fixed, until date, until event) | | `WaitForInput` + timer actor | D-FLOW-1 | v1 |
+| 6.5 | Delays (fixed, until date, until event) | | `WaitForInput` + a `resume_at` row; due runs = Quack mask | D-FLOW-1 | v1 |
 | 6.6 | Action library (set property, create record, email, list, webhook, rotate) | | `crm_actions` table | D-FLOW-3 | v1 |
 | 6.7 | Custom code actions (Node/Python) | sandboxed code | ogar-loco programs; never embedded JS/Python in hot path | D-FLOW-3 | v2 |
 | 6.8 | Workflow test mode | | crm-sim dry run | D-FLOW-6 | v1 |
@@ -170,7 +170,7 @@
 | 6.10 | Webhooks (outbound) | | version delta → signed POST | D-API-2 | v2 |
 | 6.11 | Data sync (two-way app sync) | | connector flows; out of v1 | D-FLOW-7 | later |
 | 6.12 | Datasets (reporting) | | report plans saved as data | D-QRY-6 | later |
-| 6.13 | Scheduled workflows | | cron trigger actor | D-FLOW-2 | v1 |
+| 6.13 | Scheduled workflows | | schedule row; due mask on the host's periodic wake | D-FLOW-2 | v1 |
 | 6.14 | Approval steps | human gate | `WaitForInput`; GF kanban | D-FLOW-1 | v2 |
 
 ## 7. Reporting

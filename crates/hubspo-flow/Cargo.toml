@@ -1,6 +1,6 @@
 [package]
 name = "hubspo-flow"
-description = "Workflows, sequences, SLA timers and enrolment triggers: graph-flow graphs run under ractor supervision."
+description = "Workflows, sequences, SLA timers and enrolment triggers: graph-flow graphs whose run state, delays and trigger offsets are Lance rows; due runs are Quack masks."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

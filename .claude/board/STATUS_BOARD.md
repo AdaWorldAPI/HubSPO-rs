@@ -98,7 +98,7 @@
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
 | D-FLOW-1 | Workflow model: trigger (criteria / event / schedule / webhook), enrolment, re-enrolment, actions, branches (if/then, value equals, A/B), delays (fixed, until date, until event) as graph-flow graphs | XL | Queued |  |
-| D-FLOW-2 | Trigger actor tailing `LanceVersionWatcher`; enrolment = mask delta ∩ criteria | L | Queued |  |
+| D-FLOW-2 | Enrolment triggers: mask delta between published versions ∩ criteria from a stored offset; due-run mask for delays and schedules; watcher as wake-up only (H-ADR-7, amended 2026-10-10) | L | Queued |  |
 | D-FLOW-3 | Action library: set property, create record/task, send email, add to list, webhook, rotate owner, delay, branch, custom code (loco program) | L | Queued |  |
 | D-FLOW-4 | Sequences: steps (email / task / call), stalwart future-release for scheduled sends, unenrol on reply/meeting booked (MTA hook / webhook) | L | Queued |  |
 | D-FLOW-5 | SLAs + ticket routing (round robin, skills) as timers + rules; reuse spear D-ROUTE patterns | M | Queued |  |

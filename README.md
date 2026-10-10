@@ -10,7 +10,7 @@ the machinery:
 | HubSpot's shape | Here |
 |---|---|
 | Objects, properties, associations, property history | lance-graph rows keyed by a 16-byte GUID and typed by an OGAR classid; history is the Lance version log |
-| Workflows, sequences, pipelines, scoring, SLAs | OGAR `ActionDef` + `KausalSpec` (behaviour as data), run by graph-flow under ractor supervision |
+| Workflows, sequences, pipelines, scoring, SLAs | OGAR `ActionDef` + `KausalSpec` (behaviour as data), run by graph-flow; run state and delays are Lance rows, due runs are Quack masks |
 | Email, inbox, meetings, contact sync | stalwart (separate process) + spear (columnar mail and document hub) |
 | Lists, views, reports, dashboards | masks and folds over Quack / mask-risc / `lance-graph-report` |
 | Dedup, lookalikes, scoring, suggestions | `ndarray::simd` / `hpc` and lance-graph-arm-discovery |

@@ -41,7 +41,7 @@ HubSpot is, under the marketing, four things:
 | HubSpot's real shape | What it costs them | What we use instead |
 |---|---|---|
 | **An object graph** — standard + custom objects, typed properties, labelled associations, property history | HBase/MySQL (Vitess) rows + an association service + Elasticsearch for search + a property-history store | **lance-graph SoA rows** keyed by the canonical 16-byte GUID, typed by an OGAR **classid**, read through a **ClassView**; history is the **Lance version log** (no second store) |
-| **A rule/automation engine** — workflows, sequences, lead scoring, SLAs, routing, calculated properties | a workflow service with enrollment queues, delay timers, Kafka between them | **OGAR `ActionDef` + `KausalSpec`** (behaviour as data), executed by **graph-flow** (rs-graph-llm) under **ractor** supervision, gated def-match → RBAC → state-guard → commit |
+| **A rule/automation engine** — workflows, sequences, lead scoring, SLAs, routing, calculated properties | a workflow service with enrollment queues, delay timers, Kafka between them | **OGAR `ActionDef` + `KausalSpec`** (behaviour as data), executed by **graph-flow** (rs-graph-llm) graphs whose state lives in published Lance versions, gated def-match → RBAC → state-guard → commit |
 | **A communication hub** — email send/track, inbox, chat, meetings, calls | SMTP infra, tracking pixels, a calendar sync service, an inbox product | **stalwart** (out of process: SMTP/JMAP/CalDAV/CardDAV) + **spear** (in process: columnar mail store, recipient placement via dir-sim, mailbox IAM) |
 | **A reporting + AI layer** — dashboards, custom reports, attribution, Breeze AI, enrichment, dedup | ClickHouse-style OLAP, ML services | **lance-graph-report** folds over **Quack / mask-risc**, **ndarray** SIMD/HPC (Hamming, CAM-PQ, cascade, BLAS) for dedup / lookalike / scoring, **arm-discovery** for suggestions with NARS truth |
 
@@ -146,10 +146,14 @@ underneath and is never something a customer must learn.
 - Render: `ogar-render-askama` (`FieldView`, `render_field_view`,
   `list_view`, `form_view`; ~61 tests), `ogar-a2ui-frame`
   (`NodeDelta` / `ActionInvoke`, LE wire), `ogar-doc-ir`.
-- Programs: `ogar-loco` (low-code call ABI, ~84 tests), `ogar-r2il`.
-  `docs/LOCO-ORCHESTRATION-GAP.md` (2026-09-14): graph-flow orchestration
-  on loco needs `Inventory`-addressed branches and suspension; **"nothing
-  implements it"**.
+- Programs: `ogar-loco` (low-code call ABI), `ogar-r2il`.
+  `docs/LOCO-ORCHESTRATION-GAP.md` (2026-09-14) reduced graph-flow-style
+  orchestration on loco to functions-as-objects (`Inventory`) plus
+  suspension. Re-checked 2026-10-10 against OGAR `main`: **Inventory is
+  built and wired** (`inventory.rs`, `Interpreter::with_inventory`, OGAR
+  commits `afa89d5`, `4688926`, 2026-09-16). **Suspension is not**: `WAIT`
+  / `WAIT_UNTIL` exist only as opcode names (`lib.rs:405-407`); there is no
+  `Run::Suspended` or continuation type in the crate.
 - Producers: `ogar-from-ruff` (`compile_graph_python/ruby/csharp`),
   `ogar-from-rails`, `ogar-from-schema` (OGIT TTL + XSD shipped;
   **OpenAPI / JSON-Schema listed as queued**, `lib.rs:48`).
@@ -217,7 +221,8 @@ underneath and is never something a customer must learn.
   which lives in that crate, not the contract; `NarsTruth` is in
   `contract::exploration`),
   `deepnsm` / `deepnsm-v2` (PoS FSM → SPO triples; KJV-trained space),
-  `lance-graph-supervisor` (ractor actor tree, one-for-one),
+  `lance-graph-supervisor` (ractor actor tree; **ractor is deprecated —
+  HubSPO-rs does not depend on it**, see H-ADR-7),
   `lance-graph-cypher-quack`, `lance-graph-planner`, `elixir-template` /
   `template-runtime` (compiled thinking templates), `lance-graph-osint`.
 - **Ruling (lance-graph `CLAUDE.md`, 2026-09-05):** *"Every planning is in
@@ -307,7 +312,12 @@ underneath and is never something a customer must learn.
   ContinueAndExecute, WaitForInput, End, GoTo}`, `FlowRunner`,
   `graph-flow-action-ogar::GatedOgarHandler` (def-match → RBAC →
   state-guard → MUL impact → commit), `graph-flow-kanban`. The workflow /
-  sequence engine.
+  sequence engine. graph-flow has no ractor dependency. Its session
+  storage backends are not used here: `storage_surreal` (feature
+  `surreal-lance`, SurrealDB is deprecated) and `PostgresSessionStorage`
+  (a second store). Workflow state is rows in Lance (H-ADR-7). The
+  Lance-native seam is `graph-flow-lance` (branch `claude/graph-flow-lance`,
+  **unmerged** as of 2026-10-10).
 - **tesseract-rs `tesseract-paperless`** — S-2 content dedup gate
   (`kv.rs`), `intake::ingest_doc_ir` (any `DocIr` producer),
   `LanceStore`, Tantivy search with per-language stemming, reconcile,
@@ -462,7 +472,7 @@ review required for those marked **[OPERATOR]**.
   workflow actions) are **ogar-loco** programs, never embedded JS/Python
   in the hot path.
 
-### H-ADR-7 — Behaviour: ActionDef + KausalSpec, run by graph-flow under ractor
+### H-ADR-7 — Behaviour: ActionDef + KausalSpec, run by graph-flow; state is published versions
 
 - Every mutation the product exposes ("create deal", "move stage",
   "enrol in sequence", "assign owner", "merge records") is an
@@ -474,24 +484,51 @@ review required for those marked **[OPERATOR]**.
   to_value}`; stage *configuration* (order, probability, required
   properties, closed-won/lost flags) is data. Required-property-on-stage
   is a `Constrains` spec.
-- Workflows / sequences: graph-flow graphs. Delays use
-  `NextAction::WaitForInput` + a timer actor, not sleeping tasks.
-  Branches use conditional edges whose conditions are mask predicates
-  over the enrolled record. Enrolment triggers are `LifecycleTrigger` /
-  `Onchange` specs matched by a trigger actor tailing `LanceVersionWatcher`.
+> **Amended 2026-10-10.** The first version ran workflows "under ractor",
+> with a timer actor for delays, a trigger actor tailing
+> `LanceVersionWatcher` and a `lance-graph-supervisor` actor tree. Ractor
+> is deprecated, and lance-graph's ruling `E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`
+> (2026-08-05) says the substrate progresses because published versions
+> exist, never because a pump, ack or scheduler tells it to. Timers,
+> SLAs and retries remain legitimate — the ruling places them in external
+> consumers such as this one — but as data, not as actors.
+
+- Workflows / sequences: graph-flow graphs. A run's state (enrolment,
+  current step, `resume_at`, branch taken) is a row in the tenant's
+  workflow dataset, written like any other row; graph-flow's
+  `SessionStorage` backends are not used.
+- Delays are data: entering a delay writes `resume_at` (an `i32` seconds
+  lane, H-ADR-15 condition 5) and ends the step with
+  `NextAction::WaitForInput`. Due runs are a Quack program
+  `resume_at <= now ∧ status = waiting` over the published version, giving
+  a mask. The host evaluates it when a version is published and on a
+  periodic wake for time-only delays; the wake carries no state, so a
+  restart loses nothing. No timer actor, no sleeping task.
+- Enrolment triggers: `LifecycleTrigger` / `Onchange` specs matched as the
+  mask delta between two published versions ∩ criteria, read as a version
+  range from the workflow's stored offset (H-ADR-15 condition 3, D-LOG-2).
+  `LanceVersionWatcher` is only a wake-up; it skips versions.
+- Branches use conditional edges whose conditions are mask predicates
+  over the enrolled record.
 - Calculated / rollup properties: `Depends` / `Onchange` specs; the value
   is a fold (`lance-graph-report`) over associated rows, recomputed on the
   dependency's version delta. Rollups are **not** stored as a second truth
   unless they sit at a strictly higher awareness rung (zero-copy warden's
   one carve-out); default is computed-on-read with a cached mask.
-- Actors: `lance-graph-supervisor` (ractor). One writer per mailbox:
-  each tenant×object-type write lane has one owning actor; writes from
-  workflows go **on behalf of** that owner (`SoaEnvelope::mailbox_owner`).
-  No actor-per-message write (the deleted `kanban_actor` shape); writes
-  are staged into the batch image and published as one Lance version.
-- Forbids: DDL events, `DEFINE EVENT`, SurrealQL anywhere (deprecated
+- One writer per mailbox, by ownership rather than by actor: each
+  tenant×object-type write lane is one owned `WriteLane` value (a
+  `&mut` borrow is the only way to stage into it); writes from workflows
+  go **on behalf of** the lane's owner (`SoaEnvelope::mailbox_owner`),
+  are staged into its batch image and published as one Lance version.
+  No actor-per-message write (the deleted `kanban_actor` shape).
+- Loco: formulas and custom-code actions are loco programs now. Moving
+  delays into loco continuations waits for loco suspension, which is not
+  built (§2.2).
+- Forbids: `ractor` and `lance-graph-supervisor` (deprecated), timer /
+  trigger / supervisor actors, graph-flow's `surreal-lance` storage,
+  DDL events, `DEFINE EVENT`, SurrealQL anywhere (deprecated
   workspace-wide), behaviour inside a UI component, per-record RPC
-  "advance" calls.
+  "advance" calls. *Enforced by `hubspo-guards` for the dependencies.*
 
 ### H-ADR-8 — Mail: stalwart out of process, spear in process **[OPERATOR: licensing]**
 
@@ -643,7 +680,7 @@ because Kafka's semantics are already the shape of a Lance dataset:
   association filters (D-QRY-5) and rollup properties (D-ACT-4) inside
   the algebra.
 - The other session's `graph-flow-lance` (rs-graph-llm branch
-  `claude/graph-flow-lance`) keeps only a generation-checked handle in a
+  `claude/graph-flow-lance`, unmerged as of 2026-10-10) keeps only a generation-checked handle in a
   graph-flow `Context`; a LangGraph `Send` is an axis over a mask set,
   and the model sees only the materialized export. HubSPO-rs workflows
   (D-FLOW-*) and copilot surfaces (D-INT-7) adopt that seam instead of a
@@ -674,7 +711,7 @@ produced to a topic. Zone 3 only (`hubspo-server`, `hubspo-compat`).
 3. **The realtime watcher is always-latest.** `LanceVersionWatcher` skips
    stale revisions (`version_watcher.rs` header), so it is a wake-up,
    not the log. Consumers catch up by reading the version range from
-   their stored offset.
+   their stored offset. (Workflow triggers included, H-ADR-7.)
 4. **Change records come from the data, not the audit witness.** The
    audit record is examined in place and never egresses (MedCare-rs
    commitment #7, lance-graph doctrine). Which rows and fields changed
@@ -706,7 +743,7 @@ forbidden shapes). Proposed workspace, all edition 2024:
 | `hubspo-store` | 2 | write lanes, batch image, publish-one-version, KV values, edge lanes, list masks | `lance-graph`, `lance-graph-contract`, `lancedb` |
 | `hubspo-query` | 2 | Quack programs for filters / lists / views, report plans, Cypher-quack reads | `lance-graph-quack`, `-report`, `-cypher-quack` |
 | `hubspo-actions` | 2 | `ActionDef` tables (`crm_actions`), executors, pipeline guards, calculated properties | `ogar-vocab`, `graph-flow-action-ogar` |
-| `hubspo-flow` | 2 | workflows, sequences, SLA timers, enrolment triggers (graph-flow graphs, ractor actors) | `graph-flow`, `lance-graph-supervisor` |
+| `hubspo-flow` | 2 | workflows, sequences, SLA timers, enrolment triggers (graph-flow graphs; run state, delays and offsets are Lance rows; due runs are Quack masks) | `graph-flow`, `graph-flow-action-ogar`, `lance-graph-quack` |
 | `hubspo-sim` | 2 | crm-sim: versions, rules, invariants, diff, plan (H-ADR-10) | `lance-graph-dir-sim` patterns, `ogar-dir-sim` |
 | `hubspo-iam` | 2 | role catalogue, grant source, field masks, directory actors | `ogar-rbac`, `lance-graph-rbac`, dir-sim |
 | `hubspo-intel` | 2 | dedup, lookalike, scoring, suggestions, enrichment ingest | `ndarray` (`simd`, `hpc`), `lance-graph-arm-discovery`, `deepnsm-v2` |
@@ -717,7 +754,7 @@ forbidden shapes). Proposed workspace, all edition 2024:
 | `hubspo-server` | 3 | axum host on `0.0.0.0:$PORT`, callcenter membrane (PostgREST, realtime, JWT, RLS) | `lance-graph-callcenter` (`serve`, `auth`) |
 | `hubspo-parity-fixtures` | test | value + structure oracle fixtures | — |
 | `hubspo-harvest` | tool | OpenAPI / properties-API harvester → OGAR `ogar-from-schema` openapi front end input | — |
-| `hubspo-guards` | test | Gate G0 as tests: forbidden dependencies (stalwart, surrealdb, datafusion, lettre), zone discipline, `id: String`, V1 mints; every member classified | — |
+| `hubspo-guards` | test | Gate G0 as tests: forbidden dependencies (stalwart, surrealdb, datafusion, lettre, ractor, lance-graph-supervisor; any `surreal*` feature), zone discipline, `id: String`, V1 mints; every member classified | — |
 
 `hubspo-invariants` is folded into `hubspo-sim` (invariants are Quack
 programs, not a separate type layer). `hubspo-models` disappears (there
@@ -919,16 +956,17 @@ containerised stalwart; no stalwart crate in `cargo tree`.
 | D-id | Deliverable | Size | Deps |
 |---|---|---|---|
 | D-FLOW-1 | Workflow model: trigger (criteria / event / schedule / webhook), enrolment, re-enrolment, actions, branches (if/then, value equals, A/B), delays (fixed, until date, until event) as graph-flow graphs | XL | G4 |
-| D-FLOW-2 | Trigger actor tailing `LanceVersionWatcher`; enrolment = mask delta ∩ criteria | L | D-FLOW-1, D-QRY-2 |
+| D-FLOW-2 | Enrolment triggers: mask delta between published versions ∩ criteria, read as a version range from the workflow's stored offset; due-run mask (`resume_at <= now`) for delays and schedules; `LanceVersionWatcher` as wake-up only | L | D-FLOW-1, D-QRY-2 |
 | D-FLOW-3 | Action library: set property, create record/task, send email, add to list, webhook, rotate owner, delay, branch, custom code (loco program) | L | D-FLOW-1 |
 | D-FLOW-4 | Sequences: steps (email / task / call), stalwart future-release for scheduled sends, unenrol on reply/meeting booked (MTA hook / webhook) | L | D-FLOW-1, G6 |
-| D-FLOW-5 | SLAs + ticket routing (round robin, skills) as timers + rules; reuse spear D-ROUTE patterns | M | D-FLOW-1 |
+| D-FLOW-5 | SLAs + ticket routing (round robin, skills) as `due_at` rows + rules (breach = due mask); reuse spear D-ROUTE patterns | M | D-FLOW-1 |
 | D-FLOW-6 | Workflow test mode = crm-sim dry run over a sample population | M | D-FLOW-1, D-SIM-1 |
 | D-FLOW-7 | Ops-hub-style data sync connectors as flows (out of v1 scope beyond webhooks) | — | — |
 
 **Gate G7:** 20 fixture workflows produce identical enrolment and action
 logs as the sandbox portal over a scripted event tape (value oracle);
-every delay survives an actor restart (supervisor test).
+every delay survives a host restart (test: kill the runner mid-delay,
+restart it from the published version alone, compare the action log).
 
 ### Wave 8 — UI
 
@@ -1034,7 +1072,7 @@ dependent D-ids; the response is a design change, not a threshold change.
 | Concept mints rejected or slow at the OGAR council | M | converge first (H-ADR-2 aliases); W1 can proceed on aliased objects while CRM concepts wait |
 | Custom objects at HubSpot scale (many tenants × many schemas) strain the classid model | M | H-ADR-3 keeps them as data; probe P-CUSTOM-1 |
 | AGPL contamination via stalwart | L if H-ADR-8 kept | `cargo deny` license check in CI; `cargo tree` gate in G6 |
-| Workflow engine depends on loco orchestration that "nothing implements" | H | v1 uses graph-flow directly; loco only for formula/custom-code programs |
+| Workflow engine would need loco suspension, which is not built (Inventory is, 2026-09-16) | M | v1 uses graph-flow with run state as Lance rows; loco for formula / custom-code programs; revisit delays when loco suspension lands |
 | DataFusion grace period ends while callcenter PostgREST still lowers through it | M | D-QRY-4 first |
 | dir-sim limit of 65,536 nodes per population | M for users (fine), H if reused for records | crm-sim uses its own population sizing; only borrows the pattern |
 | Over-reach: 160 features | H | matrix marks v1 / v2 / later; waves 0–8 are the CRM core |
