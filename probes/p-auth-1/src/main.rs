@@ -13,8 +13,13 @@
 //!   (H-ADR-5 mask algebra), ANDed into the fold; the mask is maintained
 //!   like an active list, so building it is not part of the read.
 //!
-//! Every arm's sum is asserted against the generator. Overhead =
-//! arm / unscoped − 1.
+//! - **take:** for sparse scopes (< 5 % of rows), read only the rows whose
+//!   mask bit is set, by row position, instead of scanning.
+//!
+//! Every arm's sum is asserted against the generator. Arms run interleaved;
+//! overhead is the per-iteration ratio arm / unscoped − 1, reported as the
+//! median and the 25th–75th percentile over the iterations, because the
+//! baseline itself drifts by more than the budget between runs.
 //!
 //! Run in release: `cargo run --release --manifest-path probes/p-auth-1/Cargo.toml`.
 //! Optional argument: rows (default 10000000).
@@ -26,9 +31,10 @@ use arrow::array::{Int32Array, RecordBatch, RecordBatchIterator, UInt32Array, UI
 use arrow::datatypes::{DataType, Field, Schema};
 use futures::TryStreamExt;
 use lance::Dataset;
+use lance::dataset::ProjectionRequest;
 
 const OWNERS: u32 = 1_000;
-const RUNS: usize = 7;
+const RUNS: usize = 21;
 const CHUNK: u64 = 65_536;
 
 fn owner(row: u64) -> u32 {
@@ -128,6 +134,39 @@ async fn scope_mask_branchless(ds: &Dataset, mask: &[u64]) -> i64 {
     total
 }
 
+/// Sparse scopes: read only the rows whose bit is set (`take` by row
+/// position) instead of scanning everything.
+async fn scope_take(ds: &Dataset, mask: &[u64]) -> i64 {
+    let mut offsets = Vec::new();
+    for (w, &word) in mask.iter().enumerate() {
+        let mut bits = word;
+        while bits != 0 {
+            offsets.push((w as u64) * 64 + bits.trailing_zeros() as u64);
+            bits &= bits - 1;
+        }
+    }
+    let b = ds
+        .take(
+            &offsets,
+            ProjectionRequest::from_columns(["amount"], ds.schema()),
+        )
+        .await
+        .expect("take");
+    i32s(&b, 0).iter().map(|&v| v as i64).sum()
+}
+
+/// Median and interquartile range of `arm[i] / base[i] - 1`, in percent.
+fn overhead(arm: &[f64], base: &[f64]) -> String {
+    let mut r: Vec<f64> = arm
+        .iter()
+        .zip(base)
+        .map(|(a, b)| 100.0 * (a / b - 1.0))
+        .collect();
+    r.sort_by(f64::total_cmp);
+    let q = |p: f64| r[((r.len() - 1) as f64 * p).round() as usize];
+    format!("{:+6.1}% [{:+.1}, {:+.1}]", q(0.5), q(0.25), q(0.75))
+}
+
 fn median(mut v: Vec<f64>) -> f64 {
     v.sort_by(f64::total_cmp);
     v[v.len() / 2]
@@ -161,11 +200,9 @@ async fn main() {
     .expect("write");
 
     println!(
-        "P-AUTH-1: {rows} rows, {OWNERS} owners, fold = sum(amount); median of {RUNS} runs, ms"
+        "P-AUTH-1: {rows} rows, {OWNERS} owners, fold = sum(amount); {RUNS} interleaved iterations; overhead median [p25, p75]"
     );
-    println!(
-        "scope        | share  | unscoped | owner check (overhead) | scope mask (overhead) | branchless mask (overhead)"
-    );
+    println!("scope | share | unscoped ms | owner check | scope mask | branchless mask | take");
     let scopes: [(&str, Box<dyn Fn(u32) -> bool>); 3] = [
         ("everything", Box::new(|_| true)),
         ("team-owned", Box::new(|o| o < 200)),
@@ -184,8 +221,10 @@ async fn main() {
             }
         }
         let all: i64 = (0..rows).map(|r| amount(r) as i64).sum();
+        let sparse = kept * 20 < rows;
 
-        let (mut t_u, mut t_o, mut t_m, mut t_b) = (vec![], vec![], vec![], vec![]);
+        let (mut t_u, mut t_o, mut t_m, mut t_b, mut t_t) =
+            (vec![], vec![], vec![], vec![], vec![]);
         for _ in 0..RUNS {
             let t = Instant::now();
             assert_eq!(unscoped(&ds).await, all, "unscoped");
@@ -203,14 +242,24 @@ async fn main() {
                 "branchless mask"
             );
             t_b.push(t.elapsed().as_secs_f64() * 1e3);
+            if sparse {
+                let t = Instant::now();
+                assert_eq!(scope_take(&ds, &mask).await, want, "take");
+                t_t.push(t.elapsed().as_secs_f64() * 1e3);
+            }
         }
-        let (u, o, m, bl) = (median(t_u), median(t_o), median(t_m), median(t_b));
+        let take = if sparse {
+            overhead(&t_t, &t_u)
+        } else {
+            "—".to_string()
+        };
         println!(
-            "{name:<12} | {:>5.1}% | {u:>8.2} | {o:>8.2} ({:>+6.1}%) | {m:>8.2} ({:>+6.1}%) | {bl:>8.2} ({:>+6.1}%)",
+            "{name} | {:.1}% | {:.2} | {} | {} | {} | {take}",
             100.0 * kept as f64 / rows as f64,
-            100.0 * (o / u - 1.0),
-            100.0 * (m / u - 1.0),
-            100.0 * (bl / u - 1.0),
+            median(t_u.clone()),
+            overhead(&t_o, &t_u),
+            overhead(&t_m, &t_u),
+            overhead(&t_b, &t_u),
         );
     }
 }
