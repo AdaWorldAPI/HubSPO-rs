@@ -2,7 +2,7 @@
 
 > What exists right now. Update in the same commit as the change.
 
-**As of 2026-10-10 (Wave 0 PR):**
+**As of 2026-10-10 (Wave 0 merged in #2; harvester + dossier in PR):**
 
 ## Workspace
 
@@ -28,6 +28,26 @@
 
 - CI: `.github/workflows/ci.yml` runs fmt, clippy (`--no-deps -D warnings`)
   and `cargo test --workspace` with debug info off.
+
+## Harvest (D-ONT-1, public-catalog half)
+
+- `scripts/fetch-hubspot-specs.sh` → `.cache/` (gitignored), then
+  `cargo run -q -p hubspo-harvest -- report .cache/hubspot-specs`.
+- Measured 2026-10-10: 123 APIs, 107 selected and read, 0 missing; 1,198
+  operations, 472 on `/objects/` (0 unclassified), 726 outside; 35 object
+  types; type ids `0-3` Deals, `0-162` Services, `0-410` Courses,
+  `0-420` Listings.
+- 13 unit tests. Five disable runs measured red (dated-release preference,
+  preview exclusion, missing-spec recording, type-id recognition,
+  dated version segment).
+- Not covered yet: per-portal property, pipeline and label definitions
+  (needs `ISS-ORACLE-PORTAL`).
+
+## Mint dossier (D-ONT-3)
+
+`.claude/plans/hubspo-concept-mint-dossier-v1.md`: 15 MINT, 10 ALIAS rows,
+6 DATA, 6 PARK rows, 5 DEFER, six questions for the OGAR council. Every
+harvested object-type name is accounted for (script-checked).
 
 ## Decisions
 

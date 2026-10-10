@@ -352,6 +352,9 @@ review required for those marked **[OPERATOR]**.
   `Quote/Invoice/Order → COMMERCIAL_DOCUMENT`, `Payment → PAYMENT_RECORD`,
   `User/Owner → HR_EMPLOYEE`, `Team → HR_DEPARTMENT`, `Email → EMAIL`,
   `File → DOCUMENT`, `Note → PROJECT_COMMENT`).
+- *Refined 2026-10-10 by the mint dossier (`hubspo-concept-mint-dossier-v1.md`):
+  users and owners → `PROJECT_ACTOR` (the IAM actor), not `HR_EMPLOYEE`;
+  also `projects` → `PROJECT`. Council question Q5.*
 - Mint a new **CRM concept domain** for what does not converge. Candidate
   list, each to pass the three-axis gate METHOD ∧ STORAGE ∧ STRUCTURE
   (furnace playbook §3) and the 5+3 codebook council *before* a hex is
@@ -976,8 +979,9 @@ below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
 
 ## §11 Status
 
-- Wave 0 (D-W0-1..6): **In PR**, 2026-10-10. Gate G0 evidence in
+- Wave 0 (D-W0-1..6): **Shipped**, 2026-10-10 (#2). Gate G0 evidence in
   `.claude/board/LATEST_STATE.md`.
+- D-ONT-1 (public-catalog half) and D-ONT-3 (dossier): **In PR**.
 - Every other D-id: **Queued**.
 
 This file is updated (status lines + measured numbers with their commands)

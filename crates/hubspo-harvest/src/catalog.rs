@@ -14,6 +14,12 @@
 //! 3. otherwise the newest dated release with stage `LATEST`;
 //! 4. otherwise nothing. `DEVELOPER_PREVIEW` is never selected: it is not a
 //!    contract HubSpot has committed to.
+//!
+//! Beta labels (`"2027-03-beta"`) do not parse, so they are never selected
+//! either, whatever their stage. On the 2026-10-10 catalog that excludes,
+//! among others, Automation V4 (workflows), Forms, Lead Scoring and
+//! Reporting: all four exist only as beta or preview. Their concepts are
+//! evidenced from elsewhere, never from an uncommitted contract.
 
 use serde::Deserialize;
 
@@ -143,7 +149,7 @@ mod tests {
                 month: 3
             })
         );
-        for bad in ["", "v3", "2026-13", "26-03", "2026-xx"] {
+        for bad in ["", "v3", "2026-13", "26-03", "2026-xx", "2027-03-beta"] {
             assert_eq!(Version::parse(bad), None, "{bad}");
         }
         assert!(Version::parse("2025-09") < Version::parse("2026-03"));
@@ -180,6 +186,8 @@ mod tests {
             Some("2026-09")
         );
         assert_eq!(picked(&[("2026-09", "DEVELOPER_PREVIEW")]), None);
+        // A beta label is not a release, even when HubSpot stages it LATEST.
+        assert_eq!(picked(&[("2027-03-beta", "LATEST")]), None);
         assert_eq!(picked(&[("beta", "STABLE")]), None);
     }
 

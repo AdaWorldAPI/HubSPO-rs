@@ -11,7 +11,8 @@
 - **What:** approved 2026-10-10 (OD-1, OD-2): port `0x000B`, domain
   `0x10XX`, a `crm_actions` domain table. Concepts mint only after the
   D-ONT-3 dossier passes the 5+3 codebook council.
-- **Next:** D-ONT-1 harvest → D-ONT-3 dossier → OGAR PR (D-ONT-4).
+- **Next:** the dossier (`hubspo-concept-mint-dossier-v1.md`) goes to the
+  OGAR 5+3 council; then the OGAR PR (D-ONT-4).
 
 ## ISS-SPEAR-HUB-REHOME — spear's D-HUB-1/2/3/7 move to HubSPO-rs
 
