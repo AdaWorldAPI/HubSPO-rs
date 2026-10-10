@@ -394,11 +394,20 @@ async fn list(n: u64, prefill: u64, batch: usize) {
         current.insert(r, Some(a));
         records.push((r, a, UPSERT));
     }
+    // Deletes target rows currently in the list, and carry the row's old
+    // value: a reader that ignored `op` would keep them, so the delete path
+    // is what the assertion checks (a zero payload would clear the bit
+    // either way and prove nothing).
     while records.len() < 1000 {
         let r = lcg(&mut x) % n;
-        if seen.insert(r) {
+        let old = current
+            .get(&r)
+            .copied()
+            .flatten()
+            .unwrap_or_else(|| base_value(r));
+        if old >= THRESHOLD && seen.insert(r) {
             current.insert(r, None);
-            records.push((r, 0, DELETE));
+            records.push((r, old, DELETE));
         }
     }
     append_delta(&delta_uri, prefill + 1, &records, first).await;
