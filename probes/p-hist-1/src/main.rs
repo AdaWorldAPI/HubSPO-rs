@@ -39,6 +39,7 @@ const VERSIONS: u64 = 1_000;
 const BATCH: usize = 100;
 const TARGET_EVERY: u64 = 10;
 const RUNS: usize = 3;
+const CONCURRENCY: usize = 32;
 const LAST_UPDATED: &str = "_row_last_updated_at_version";
 
 fn schema() -> Arc<Schema> {
@@ -171,6 +172,40 @@ async fn address_index(ds: &Dataset, index: &[(u64, u64)]) -> (Vec<i32>, usize) 
     (out, checkouts)
 }
 
+/// The same reads as [`address_index`], issued concurrently. Every entry is
+/// independent, so the reads overlap their I/O.
+async fn address_index_concurrent(ds: &Dataset, index: &[(u64, u64)], width: usize) -> Vec<i32> {
+    let projection = ds.schema().project(&["a"]).expect("project");
+    futures::stream::iter(index.iter().copied())
+        .map(|(v, addr)| {
+            let projection = projection.clone();
+            async move {
+                let (frag, offset) = ((addr >> 32) as usize, addr & 0xFFFF_FFFF);
+                let fragment = match ds.get_fragment(frag) {
+                    Some(f) => f,
+                    None => ds
+                        .checkout_version(v)
+                        .await
+                        .expect("checkout")
+                        .get_fragment(frag)
+                        .expect("fragment live at its version"),
+                };
+                let batches: Vec<RecordBatch> = fragment
+                    .read_physical_slice(offset..offset + 1, &projection, 1)
+                    .await
+                    .expect("slice")
+                    .buffered(1)
+                    .try_collect()
+                    .await
+                    .expect("read");
+                col_i32(&batches[0], "a")
+            }
+        })
+        .buffered(width)
+        .collect()
+        .await
+}
+
 async fn probe(n: u64) {
     let dir = tempfile::tempdir().expect("tempdir");
     let uri = dir.path().join("p_hist_1.lance");
@@ -235,7 +270,7 @@ async fn probe(n: u64) {
         .map(|d| initial + d)
         .collect();
 
-    let (mut t_tt, mut t_cc, mut t_ai) = (vec![], vec![], vec![]);
+    let (mut t_tt, mut t_cc, mut t_ai, mut t_ac) = (vec![], vec![], vec![], vec![]);
     let mut index = Vec::new();
     let mut fallbacks = 0;
     for _ in 0..RUNS {
@@ -250,6 +285,11 @@ async fn probe(n: u64) {
         t_ai.push(t.elapsed().as_secs_f64() * 1e3);
         assert_eq!(h.0, expected, "address index history");
         fallbacks = h.1;
+
+        let t = Instant::now();
+        let h = address_index_concurrent(&ds, &index, CONCURRENCY).await;
+        t_ac.push(t.elapsed().as_secs_f64() * 1e3);
+        assert_eq!(h, expected, "concurrent address index history");
 
         let t = Instant::now();
         let h = time_travel(&ds, v0, last, row).await;
@@ -287,11 +327,12 @@ async fn probe(n: u64) {
     }
 
     println!(
-        "{n:>9} | {:>8} | {fragments:>5} | {build_s:>7.1} | {:>11.2} | {:>12.2} | {:>13.2} | {:>5} | {fallbacks:>9}",
+        "{n:>9} | {:>8} | {fragments:>5} | {build_s:>7.1} | {:>11.2} | {:>12.2} | {:>13.2} | {:>10.2} | {:>5} | {fallbacks:>9}",
         last - v0,
         median(t_tt),
         median(t_cc),
         median(t_ai),
+        median(t_ac),
         index.len(),
     );
 }
@@ -308,7 +349,7 @@ async fn main() {
         "P-HIST-1: {VERSIONS} versions x {BATCH} updates, target changes every {TARGET_EVERY}th; median of {RUNS} runs"
     );
     println!(
-        "        N | versions | frags | build s | time travel | change chain | address index | reads | checkouts"
+        "        N | versions | frags | build s | time travel | change chain | address index | concurrent | reads | checkouts"
     );
     for n in sizes {
         probe(n).await;
