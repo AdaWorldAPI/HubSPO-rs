@@ -3,6 +3,18 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LG-REPORT-OWNED-LANES — the report seam copies each lane once
+
+- **Status:** OPEN (upstream ask; not built here — STOP rule)
+- **Where:** lance-graph `crates/lance-graph-report/src/batch.rs:26` (`LaneData` holds `Arc<[i32]>` / `Arc<[u32]>` / `Arc<[u64]>`).
+- **What:** publishing a Lance version into an `AbiBatch` copies every lane once, so graph-flow-lance and z8run-lance (both on this seam) are not zero-copy from Lance. mask-risc itself borrows slices and is. Ask: a borrowed or Arrow-buffer-backed `LaneData` variant. Plan H-ADR-15 condition 1.
+
+## ISS-LG-REPORT-GENERATION-WIDTH — `AbiBatch` generation is u32, Lance versions are u64
+
+- **Status:** OPEN (upstream ask)
+- **Where:** lance-graph `crates/lance-graph-report/src/batch.rs:122`, `plan.rs:288`; rs-graph-llm `graph-flow-lance` `Envelope.generation: u32`.
+- **What:** using the Lance version as the handle generation (the natural choice: offset = version = generation) needs a fail-closed mapping past `u32::MAX`, or a wider field upstream. Plan H-ADR-15 condition 2.
+
 ## ISS-OGAR-CRM-PORT — HubSpoPort and the CRM concept domain do not exist
 
 - **Status:** OPEN (blocks D-ONT-5 and every classid in Wave 1)

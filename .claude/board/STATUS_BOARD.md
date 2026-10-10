@@ -149,3 +149,11 @@
 | D-API-3 | OAuth apps / private app tokens mapped to RBAC actors with delegation | M | Queued |  |
 | D-API-4 | Migration runbook: shadow mode (read-only mirror of a live portal, nightly diff), then cut-over | L | Queued |  |
 | D-API-5 | Contract tests: replay recorded HubSpot API traffic against the façade | L | Queued |  |
+
+## Cross-cutting — H-ADR-15 (Kafka-shaped log outside, mask algebra inside)
+
+| D-id | Deliverable | Size | Status | Evidence |
+|---|---|---|---|---|
+| D-LOG-1 | Log record (`NodeDelta` body) + batch header `(topic, base_offset, record_count)`, RBAC-projected per consumer; zone 3 | M | Queued |  |
+| D-LOG-2 | Consumer offsets as `(consumer, last_version)` rows; replay over `VersionRange` | M | Queued |  |
+| D-LOG-3 | Optional `rdkafka` edge producing the same records to a Kafka topic | M | Queued |  |
