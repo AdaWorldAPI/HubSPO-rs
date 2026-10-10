@@ -1,15 +1,84 @@
 [workspace]
+resolver = "3"
 members = [
-    "crates/hubspo-ontology",
-    "crates/hubspo-graph",
-    "crates/hubspo-models",
-    "crates/hubspo-engine",
-    "crates/hubspo-compatibility",
-    "crates/hubspo-invariants",
+    "crates/hubspo-port",
+    "crates/hubspo-schema",
+    "crates/hubspo-generated",
+    "crates/hubspo-store",
+    "crates/hubspo-query",
+    "crates/hubspo-actions",
+    "crates/hubspo-flow",
+    "crates/hubspo-sim",
+    "crates/hubspo-iam",
+    "crates/hubspo-intel",
+    "crates/hubspo-comms",
+    "crates/hubspo-docs",
+    "crates/hubspo-compat",
+    "crates/hubspo-ui",
+    "crates/hubspo-server",
+    "crates/hubspo-parity-fixtures",
+    "crates/hubspo-harvest",
+    "crates/hubspo-guards",
 ]
-resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+# rust-toolchain.toml pins the channel; keep the two in step.
+rust-version = "1.98.1"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/AdaWorldAPI/HubSPO-rs"
+
+# Cross-repo dependencies (H-ADR-14).
+#
+# - AdaWorldAPI siblings float on their default branch. No rev / tag / version
+#   pins on our own repos, no `vendor/` symlinks, no paths that escape the repo.
+#   ndarray's default branch is `master`; every other sibling is `main`.
+# - The lance family is crates.io upstream and floats on its patch:
+#   `12.*` / `0.39.*` / `58`, never an exact `.0.0` (lance-graph CLAUDE.md,
+#   Key Dependencies). One ndarray in the graph.
+# - An entry here is fetched only once a member uses it, so declaring the
+#   whole stack now costs nothing and fixes the coordinates once.
+# - Forbidden here and anywhere (checked by hubspo-guards): stalwart crates
+#   (AGPL, H-ADR-8), surrealdb / SurrealQL adapters, datafusion, lettre.
+[workspace.dependencies]
+# lance-graph (spine). `guid-v3-tail` makes `mint_for` mint V3 keys (H-ADR-1).
+lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main", features = ["guid-v3-tail"] }
+lance-graph-quack = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-mask-risc = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-report = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-rbac = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-callcenter = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-supervisor = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-dir-sim = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+lance-graph-arm-discovery = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+# Spine-only: tests and the admin tool, never the server binary (BBB barrier).
+lance-graph-ogar = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+
+# OGAR (IR / codebook / render / authority).
+ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-class-view = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-rbac = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-render-askama = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-a2ui-frame = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-dir-core = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+# ndarray (foundation). All SIMD through `ndarray::simd`, never raw intrinsics.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+# Consumers we build on.
+spear = { git = "https://github.com/AdaWorldAPI/spear", branch = "main" }
+graph-flow = { git = "https://github.com/AdaWorldAPI/rs-graph-llm", branch = "main" }
+graph-flow-action-ogar = { git = "https://github.com/AdaWorldAPI/rs-graph-llm", branch = "main" }
+a2ui-server = { git = "https://github.com/AdaWorldAPI/a2ui-rs", branch = "main" }
+tesseract-paperless = { git = "https://github.com/AdaWorldAPI/tesseract-rs", branch = "main" }
+
+# Lance family (crates.io upstream, floating patch).
+lance = { version = "12.*", default-features = false }
+lancedb = { version = "0.39.*", default-features = false }
+arrow = "58"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

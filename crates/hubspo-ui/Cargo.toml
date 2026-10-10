@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-ui"
+description = "a2ui surfaces and askama templates in the six-region frame: record page, index table, board, settings, builders."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

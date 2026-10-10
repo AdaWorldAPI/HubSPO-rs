@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# The fleet's measured build hygiene (ndarray / MedCare-rs CLAUDE.md):
+# debug info off and no incremental cache keep the lance/arrow tree inside
+# the runner's disk. Do NOT set RUSTFLAGS here: an env RUSTFLAGS silently
+# replaces every cargo-config rustflags entry (ndarray CLAUDE.md, the
+# target-cpu incident).
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+jobs:
+  check:
+    name: fmt, clippy, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rustup reads rust-toolchain.toml (1.98.1 + rustfmt + clippy).
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      # --no-deps: lint our crates, not the git siblings (MedCare-rs lesson).
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --no-deps -- -D warnings
+
+      # Includes hubspo-guards: forbidden dependencies, zone discipline,
+      # identity shapes (Gate G0).
+      - name: Test
+        run: cargo test --workspace

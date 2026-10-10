@@ -1,8 +1,8 @@
 # HubSPO-rs integration plan v1 — HubSpot reimagined on lance-graph · OGAR · ndarray · spear · stalwart · dir-sim
 
-> **Status:** PROPOSAL, 2026-10-10. Nothing in this plan is built yet except
-> where §2 says "shipped" and cites the file. Every D-id below starts
-> `Queued`.
+> **Status:** APPROVED 2026-10-10 — all open decisions OD-1..OD-11 (§10)
+> approved as recommended. Wave 0 in PR; every later D-id `Queued`. Live
+> status per D-id: `.claude/board/STATUS_BOARD.md`.
 >
 > **Companion:** `.claude/plans/hubspo-feature-matrix-v1.md` maps every
 > HubSpot feature (160 rows, all five hubs plus platform and AI) onto a
@@ -592,7 +592,8 @@ HubSPO-rs consumes spear's activity table rather than defining a second.
 - `rust-toolchain.toml` `channel = "1.98.1"`; edition 2024 (matches OGAR,
   a2ui-rs).
 - Git deps on `branch = "main"` for lance-graph-*, OGAR crates, ndarray,
-  a2ui-rs, spear, rs-graph-llm; lance/lancedb/arrow/datafusion floated per
+  a2ui-rs, spear, rs-graph-llm (ndarray's default branch is `master`, not
+  `main`); lance/lancedb/arrow/datafusion floated per
   lance-graph's family (`12.*`, `0.39.*`, `58`, `54`), never exact `.0.0`.
   One ndarray in the graph (cargo-substrate law). No `vendor/` symlinks,
   no relative paths that escape the repo in committed manifests.
@@ -628,6 +629,7 @@ forbidden shapes). Proposed workspace, all edition 2024:
 | `hubspo-server` | 3 | axum host on `0.0.0.0:$PORT`, callcenter membrane (PostgREST, realtime, JWT, RLS) | `lance-graph-callcenter` (`serve`, `auth`) |
 | `hubspo-parity-fixtures` | test | value + structure oracle fixtures | — |
 | `hubspo-harvest` | tool | OpenAPI / properties-API harvester → OGAR `ogar-from-schema` openapi front end input | — |
+| `hubspo-guards` | test | Gate G0 as tests: forbidden dependencies (stalwart, surrealdb, datafusion, lettre), zone discipline, `id: String`, V1 mints; every member classified | — |
 
 `hubspo-invariants` is folded into `hubspo-sim` (invariants are Quack
 programs, not a separate type layer). `hubspo-models` disappears (there
@@ -951,9 +953,12 @@ dependent D-ids; the response is a design change, not a threshold change.
 
 ---
 
-## §10 Open decisions for the operator
+## §10 Decisions
 
-| ID | Question | Recommendation |
+**DECISION (2026-10-10):** the operator approved every recommendation
+below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
+
+| ID | Question | Recommendation (approved) |
 |---|---|---|
 | OD-1 | `HubSpoPort` app prefix `0x000B`? | yes (next free after Spear) |
 | OD-2 | New `ConceptDomain::Crm` at `0x10XX` vs folding into Commerce `0x02XX` | new domain; CRM is not commerce |
@@ -971,5 +976,9 @@ dependent D-ids; the response is a design change, not a threshold change.
 
 ## §11 Status
 
-All D-ids: **Queued**. This file is updated (status lines + measured
-numbers with their commands) at every gate.
+- Wave 0 (D-W0-1..6): **In PR**, 2026-10-10. Gate G0 evidence in
+  `.claude/board/LATEST_STATE.md`.
+- Every other D-id: **Queued**.
+
+This file is updated (status lines + measured numbers with their commands)
+at every gate.

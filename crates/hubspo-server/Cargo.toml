@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-server"
+description = "The axum host on 0."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

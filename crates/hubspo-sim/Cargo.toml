@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-sim"
+description = "crm-sim: every bulk change is simulated as a version, validated by invariant programs, diffed and turned into a reviewable plan before anything is written (H-ADR-10)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

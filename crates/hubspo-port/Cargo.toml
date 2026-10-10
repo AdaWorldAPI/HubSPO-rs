@@ -1,0 +1,16 @@
+[package]
+name = "hubspo-port"
+description = "The one doorway to OGAR's codebook: the HotPlug and RbacPlug declarations and class_id(name) lookups over HubSpoPort."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+lance-graph-contract.workspace = true
+ogar-vocab.workspace = true
+
+[lints]
+workspace = true
