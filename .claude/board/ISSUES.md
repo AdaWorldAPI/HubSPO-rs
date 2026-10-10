@@ -3,6 +3,16 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-HIST-SCAN-COST — property history scans the whole log
+
+- **Status:** OPEN (D-STO-5 budget; correctness shipped)
+- **Where:** `hubspo-store::log::Log::history`.
+- **What:** history reads every log record and runs the Quack program over them. Measured 2026-10-10 (`examples/probe_history.rs`, release, 100k records, 1,000 versions × 1,000 updates, 1.2M log records): 336 ms with one fragment per version, 320 ms of it the raw scan; 57 ms after compacting to one fragment, 54 ms of it the scan. P-HIST-1's budget is < 20 ms. The program is not the cost.
+- **Levers, in order:**
+  1. Compaction (6× here). It adds Lance versions, so `commit`'s check "Lance version = table version" must change first: take the table version from the log's `version` column (or record the Lance version a table version maps to), and refuse a second writer by that instead.
+  2. Read only `row`, `lane`, `op` for the program and fetch the other columns for the matches by position.
+  3. An index on `row`. P-SPARSE-1 measured 3.3–5.9 ms compacted with Lance's BTree. Using it takes a Lance filter expression, which runs Lance's internal DataFusion; whether that sits within iron rule 5 (no `datafusion*` dependency, queries are Quack) is an operator decision. The plan's alternative (§5.2) is our own change index — positions per record, an index, not a second truth.
+
 ## ISS-LG-MASKRISC-PATH-NDARRAY — Quack could not be consumed by git
 
 - **Status:** RESOLVED 2026-10-10 by lance-graph #1457 (`e724d83`): mask-risc names ndarray by git, and lance-graph's workspaces patch it back to the sibling checkout.

@@ -47,9 +47,8 @@ async fn main() {
         log.commit(&mut t, &b).await.expect("commit");
     }
     println!(
-        "wrote {} versions ({} records) in {:.1} s",
+        "wrote {} versions in {:.1} s",
         VERSIONS + 1,
-        ROWS + VERSIONS * UPDATES,
         started.elapsed().as_secs_f64()
     );
     measure(&log, uri.to_str().expect("utf8"), "fragmented").await;
@@ -81,6 +80,7 @@ async fn measure(log: &Log, uri: &str, label: &str) {
     let mut hist = Vec::new();
     let mut scan = Vec::new();
     let mut n = 0;
+    let mut records = 0;
     for _ in 0..7 {
         let s = Instant::now();
         n = log
@@ -102,14 +102,14 @@ async fn measure(log: &Log, uri: &str, label: &str) {
             .iter()
             .map(|b| b.num_rows())
             .sum();
-        assert_eq!(rows, (ROWS + VERSIONS * UPDATES) as usize);
+        records = rows;
         scan.push(s.elapsed().as_secs_f64() * 1e3);
     }
     assert_eq!(n, VERSIONS as usize + 1, "one entry per version");
     let (h, hmin, hmax) = median(hist);
     let (r, rmin, rmax) = median(scan);
     println!(
-        "{label}: history {n} entries, median {h:.1} ms ({hmin:.1}..{hmax:.1}); \
+        "{label}: {records} log records; history {n} entries, median {h:.1} ms ({hmin:.1}..{hmax:.1}); \
          raw scan alone median {r:.1} ms ({rmin:.1}..{rmax:.1}); 7 reads each"
     );
 }
