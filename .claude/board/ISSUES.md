@@ -28,7 +28,7 @@
 
 ## ISS-SPEAR-HUB-REHOME — spear's D-HUB-1/2/3/7 move to HubSPO-rs
 
-- **Status:** OPEN
+- **Status:** RESOLVED 2026-10-10 by spear #13 (D-HUB-1/2/3/7 marked Abandoned there).
 - **Where:** spear `.claude/plans/spear-outer-integration-v1.md` §3.1,
   `.claude/board/STATUS_BOARD.md`.
 - **What:** approved 2026-10-10 (OD-5, H-ADR-12). spear keeps D-HUB-4/5/6/8
@@ -37,14 +37,14 @@
 
 ## ISS-SPEAR-DATAFUSION-RULE — spear still mandates DataFusion `Expr`
 
-- **Status:** OPEN
+- **Status:** RESOLVED 2026-10-10 by spear #13 (rule 1 now sends new query code to Quack).
 - **Where:** spear `CLAUDE.md`, "Architecture Invariants" rule 1.
 - **What:** approved 2026-10-10 (OD-7): new code uses Quack; DataFusion is
   in a grace period (lance-graph `CLAUDE.md`, 2026-09-05).
 
 ## ISS-LG-PREFLIGHT-STALE-PINS — consumer preflight whitelists old lance pins
 
-- **Status:** OPEN
+- **Status:** RESOLVED 2026-10-10 by lance-graph #1436. Operator confirmed 2026-10-10: the whole fleet is on lance 12 / lancedb 0.39; this workspace floats `12.*` / `0.39.*`.
 - **Where:** lance-graph `.claude/knowledge/ogar-consumer-preflight.md`.
 - **What:** it whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph
   `CLAUDE.md` floats `12.*` / `0.39.*`. Approved 2026-10-10 (OD-11): follow
