@@ -1,0 +1,24 @@
+# Probe P-QDB-1 (Quack as the database for tickets, mail, documents and
+# delivery). Its own workspace on purpose: lance needs `protoc` at build time
+# and mask-risc path-deps the ndarray fork, neither of which CI provides. Needs
+# the sibling layout `../lance-graph` + `../ndarray` next to HubSPO-rs. Run:
+#   cargo run --release --manifest-path probes/p-qdb-1/Cargo.toml -- 1000000
+[package]
+name = "p-qdb-1"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# Path deps, not git: mask-risc path-deps `../../../ndarray`, which only
+# resolves in the sibling layout.
+lance-graph-quack = { path = "../../../lance-graph/crates/lance-graph-quack" }
+lance-graph-mask-risc = { path = "../../../lance-graph/crates/lance-graph-mask-risc" }
+# Floated with lance-graph's family (lance 13 / arrow 58).
+lance = { version = "13.*", default-features = false }
+arrow = "58"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
+tempfile = "3"
+
+[workspace]
