@@ -12,20 +12,20 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-W0-1 | Delete the non-compiling skeleton; new workspace per §4 with empty-but-compiling crates; `rust-toolchain.toml` 1.98.1; edition 2024 | S | In PR | Wave 0 PR |
-| D-W0-2 | `Cargo.toml` workspace deps: lance-graph-* / OGAR / ndarray / spear / a2ui-rs / graph-flow on `branch="main"`; lance family floated | S | In PR | Wave 0 PR |
-| D-W0-3 | CI workflow (test, clippy `--no-deps -D warnings`, fmt, debug-0, `config-v3.toml`) | S | In PR | Wave 0 PR |
-| D-W0-4 | `.claude/` board: `LATEST_STATE.md`, `STATUS_BOARD.md` (all D-ids), `ISSUES.md`, `EPIPHANIES.md` (admission gate per lance-graph closeout rule) | S | In PR | Wave 0 PR |
-| D-W0-5 | CLAUDE.md rewrite: iron rules from §3, read order, link to this plan | S | In PR | Wave 0 PR |
-| D-W0-6 | README rewrite (drops "JanusGraph/ClickHouse/Gremlin replacement" framing in favour of §1) | S | In PR | Wave 0 PR |
+| D-W0-1 | Delete the non-compiling skeleton; new workspace per §4 with empty-but-compiling crates; `rust-toolchain.toml` 1.98.1; edition 2024 | S | Shipped | #2 |
+| D-W0-2 | `Cargo.toml` workspace deps: lance-graph-* / OGAR / ndarray / spear / a2ui-rs / graph-flow on `branch="main"`; lance family floated | S | Shipped | #2 |
+| D-W0-3 | CI workflow (test, clippy `--no-deps -D warnings`, fmt, debug-0, `config-v3.toml`) | S | Shipped | #2 |
+| D-W0-4 | `.claude/` board: `LATEST_STATE.md`, `STATUS_BOARD.md` (all D-ids), `ISSUES.md`, `EPIPHANIES.md` (admission gate per lance-graph closeout rule) | S | Shipped | #2 |
+| D-W0-5 | CLAUDE.md rewrite: iron rules from §3, read order, link to this plan | S | Shipped | #2 |
+| D-W0-6 | README rewrite (drops "JanusGraph/ClickHouse/Gremlin replacement" framing in favour of §1) | S | Shipped | #2 |
 
 ## Wave 1 — Ontology and identity
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-ONT-1 | Harvest: `hubspo-harvest` pulls HubSpot's public OpenAPI specs + the properties/pipelines/association-label APIs of a sandbox portal → normalised schema JSON (zone 3, tool only) | M | Queued |  |
+| D-ONT-1 | Harvest: `hubspo-harvest` pulls HubSpot's public OpenAPI specs + the properties/pipelines/association-label APIs of a sandbox portal → normalised schema JSON (zone 3, tool only) | M | In PR | public-catalog half done; sandbox half blocked on `ISS-ORACLE-PORTAL` |
 | D-ONT-2 | OGAR: `ogar-from-schema` OpenAPI front end (queued upstream, `lib.rs:48`) — **requested from OGAR, not built in HubSPO-rs** | L | Queued |  |
-| D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | Queued |  |
+| D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | In PR | `.claude/plans/hubspo-concept-mint-dossier-v1.md`; awaits council |
 | D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x10XX`), approved concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, `crm_actions` domain table, layout doc row; lance-graph `ogar_codebook` mirror rows in the same arc | M | Queued |  |
 | D-ONT-5 | `hubspo-port`: `HotPlug` + `RbacPlug` consts; `activate()` test that reports zero drift; deliberately-wrong-plug test proving each drift arm can fire | S | Queued |  |
 | D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | Queued |  |
