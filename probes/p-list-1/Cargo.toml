@@ -1,0 +1,19 @@
+# Probe P-LIST-1 (plan H-ADR-5, §9). Its own workspace on purpose: lance needs `protoc`
+# at build time, which CI does not install, and a probe must not make every
+# HubSPO-rs PR depend on it. Run:
+#   cargo run --release --manifest-path probes/p-list-1/Cargo.toml
+[package]
+name = "p-list-1"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# Floated with lance-graph's family (lance 13 / lancedb 0.40 / arrow 58).
+lance = { version = "13.*", default-features = false }
+arrow = "58"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
+tempfile = "3"
+
+[workspace]
