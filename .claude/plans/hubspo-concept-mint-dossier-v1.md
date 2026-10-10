@@ -1,5 +1,8 @@
 # HubSPO-rs concept mint dossier v1 (D-ONT-3)
 
+> ⊘ **Superseded by v3** (ratified 2026-10-10). Kept as the input the
+> council reviewed.
+
 > **For:** the OGAR 5+3 codebook council, before D-ONT-4 (the OGAR PR that
 > adds `HubSpoPort`, `ConceptDomain::Crm` and the CRM concepts).
 > **Status:** DRAFT 2026-10-10. Nothing here is minted; every row is a

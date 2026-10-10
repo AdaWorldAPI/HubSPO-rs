@@ -1068,7 +1068,10 @@ below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
 
 - Wave 0 (D-W0-1..6): **Shipped**, 2026-10-10 (#2). Gate G0 evidence in
   `.claude/board/LATEST_STATE.md`.
-- D-ONT-1 (public-catalog half) and D-ONT-3 (dossier): **In PR**.
+- D-ONT-1 (public-catalog half): **Shipped** (#3). D-ONT-3: **ratified**
+  2026-10-10 — `hubspo-concept-mint-dossier-v3.md` (15 concepts at
+  `0x0501`–`0x050F`, 8 alias keys, landing order OGAR → lance-graph).
+- D-ONT-4: **In progress**.
 - Every other D-id: **Queued**.
 
 This file is updated (status lines + measured numbers with their commands)

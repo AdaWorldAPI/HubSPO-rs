@@ -1,5 +1,8 @@
 # HubSPO-rs concept mint dossier v2 (D-ONT-3, council draft)
 
+> ⊘ **Superseded by v3** (ratified 2026-10-10). Kept as the draft the
+> three adversarial reviewers attacked.
+
 > **Supersedes:** `hubspo-concept-mint-dossier-v1.md` (kept as the input the
 > council reviewed).
 > **Status:** COUNCIL DRAFT v2, 2026-10-10. Five research agents reviewed v1

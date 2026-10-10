@@ -2,7 +2,7 @@
 
 > What exists right now. Update in the same commit as the change.
 
-**As of 2026-10-10 (Wave 0 merged in #2; harvester + dossier in PR):**
+**As of 2026-10-10 (Wave 0 merged in #2; harvester merged in #3; mint dossier ratified as v3 by the 5+3 council; D-ONT-4 in progress):**
 
 ## Workspace
 
