@@ -421,6 +421,12 @@ review required for those marked **[OPERATOR]**.
 - Open: whether the extension tenant is one lane per property (fast fold,
   wide) or a packed `(position,value)` run (narrow, slower fold). Decide by
   probe P-CUSTOM-1 (§6).
+  *Measured 2026-10-10 (P-CUSTOM-1, board LATEST_STATE):* lanes meet the
+  fold budget at 50 / 500 / 2,000 custom properties (0.73–1.61× a standard
+  fold over 1M rows); the packed run does not (14.8–35×). Lanes cost at
+  write time: 33–96 s against ~1.5 s for 1M rows, and 5–6× the disk. The
+  fold criterion picks lanes; bulk import and adding a property (a new
+  column) are the costs to probe before D-ONT-7 closes.
 
 ### H-ADR-4 — Associations are edges with labels as data
 
@@ -1059,7 +1065,7 @@ with identical responses modulo ids/timestamps.
 
 | Probe | Question | Pass criterion (pre-registered) |
 |---|---|---|
-| P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold |
+| P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold — **lanes pass (1.61× at 500), packed fails (18×)**, 2026-10-10 |
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 |
 | P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10 |

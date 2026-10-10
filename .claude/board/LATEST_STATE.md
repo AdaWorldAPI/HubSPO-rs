@@ -86,6 +86,30 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-CUSTOM-1 (plan H-ADR-3)
+
+`probes/p-custom-1`. Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-custom-1/Cargo.toml && target/probes/release/p-custom-1 1000000 50,500,2000`.
+1M rows; each row fills 20 of the K custom properties plus a standard
+`amount`. Lanes: one nullable `i32` column per property. Packed: parallel
+`List<u16>` positions and `List<i32>` values. Fold = sum of one property,
+asserted against the generator; median of 5 runs. Measured 2026-10-10:
+
+| K | standard ms | lanes ms (× std) | packed ms (× std) | write lanes s | write packed s | lanes MB | packed MB |
+|---|---|---|---|---|---|---|---|
+| 50 | 16.17 | 15.66 (0.97) | 565.75 (35.0) | 1.2 | 1.3 | 54.7 | 42.6 |
+| 500 | 12.08 | 19.40 (1.61) | 218.23 (18.1) | 33.2 | 1.3 | 268.4 | 50.1 |
+| 2,000 | 43.34 | 31.61 (0.73) | 639.53 (14.8) | 96.1 | 1.7 | 347.3 | 55.1 |
+
+Verdict: **lanes pass the fold budget at every K; the packed run fails at
+every K** (it scans all 20M entries and filters by position). Lanes pay at
+write time (33–96 s vs ~1.5 s) and on disk (5–6×), and the standard fold
+itself slows on a 2,000-column dataset (43 ms vs 12–16 ms). The sums are
+a scalar loop in both layouts, not a Quack fold. Not probed: adding a
+custom property to a live dataset (a new column) and bulk import time at
+tenant scale. Disable run: folding the wrong position in the packed arm →
+assertion red; restored green.
+
 ## Probe P-LIST-1 (plan H-ADR-5)
 
 `probes/p-list-1`. Command:
