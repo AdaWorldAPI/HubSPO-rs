@@ -40,16 +40,19 @@ repository = "https://github.com/AdaWorldAPI/HubSPO-rs"
 # - An entry here is fetched only once a member uses it, so declaring the
 #   whole stack now costs nothing and fixes the coordinates once.
 # - Forbidden here and anywhere (checked by hubspo-guards): stalwart crates
-#   (AGPL, H-ADR-8), surrealdb / SurrealQL adapters, datafusion, lettre.
+#   (AGPL, H-ADR-8), surrealdb / SurrealQL adapters and any `surreal*`
+#   feature, datafusion, lettre, ractor and lance-graph-supervisor (ractor is
+#   deprecated; workflow state is Lance rows, H-ADR-7).
 [workspace.dependencies]
 # lance-graph (spine). `guid-v3-tail` makes `mint_for` mint V3 keys (H-ADR-1).
 lance-graph-contract = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main", features = ["guid-v3-tail"] }
 lance-graph-quack = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-mask-risc = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-report = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
+# Experimental: count / sum / min / max and one-hop counts; every other shape is a typed Refusal.
+lance-graph-cypher-quack = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-rbac = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-callcenter = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
-lance-graph-supervisor = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-dir-sim = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 lance-graph-arm-discovery = { git = "https://github.com/AdaWorldAPI/lance-graph", branch = "main" }
 # Spine-only: tests and the admin tool, never the server binary (BBB barrier).

@@ -8,6 +8,8 @@
 //! |---|---|
 //! | no stalwart crate or stalwart git source | stalwart is AGPL; it runs as its own process (H-ADR-8) |
 //! | no `surrealdb` / SurrealQL adapter | SurrealQL is deprecated workspace-wide |
+//! | no `surreal*` feature on any dependency | e.g. graph-flow's `surreal-lance` session storage |
+//! | no `ractor*` / `lance-graph-supervisor` | ractor is deprecated; run state is Lance rows (H-ADR-7) |
 //! | no `datafusion*` | DataFusion is in a grace period; nothing new goes to it (H-ADR-6) |
 //! | no `lettre` | mail is sent through stalwart's submission (H-ADR-8) |
 //! | serde only in wire crates | zone discipline: zone 2 carries no wire formats |
@@ -94,7 +96,18 @@ const FORBIDDEN_DEPS: &[(&str, bool)] = &[
     ("ogar-adapter-surrealql", false),
     ("datafusion", true),
     ("lettre", false),
+    ("ractor", true),
+    ("lance-graph-supervisor", false),
 ];
+
+/// True when a dependency line enables a feature whose name starts with
+/// `surreal` (graph-flow's `surreal-lance` storage is the known case).
+/// Only quoted strings after `features` count, so a crate merely named
+/// `surreal-ish-helper` does not fire.
+fn enables_surreal_feature(text: &str) -> bool {
+    text.split_once("features")
+        .is_some_and(|(_, rest)| rest.contains("\"surreal"))
+}
 
 fn forbidden_name(name: &str) -> Option<&'static str> {
     FORBIDDEN_DEPS.iter().find_map(|&(pattern, prefix)| {
@@ -211,7 +224,7 @@ pub fn check_manifest(crate_name: Option<&str>, file: &str, toml: &str) -> Vec<V
             }
             Section::LinkedTable | Section::DevTable => {
                 // Inside `[dependencies.foo]`: a git source or a renamed package.
-                if line.contains("stalwart") {
+                if line.contains("stalwart") || enables_surreal_feature(line) {
                     out.push(forbidden(file, lineno, line));
                 }
                 if let Some(pkg) = line
@@ -256,6 +269,7 @@ fn check_dep(
     if forbidden_name(name).is_some()
         || renamed.is_some_and(|pkg| forbidden_name(pkg).is_some())
         || text.contains("stalwart")
+        || enables_surreal_feature(text)
     {
         out.push(forbidden(file, line, text));
     }
@@ -358,6 +372,11 @@ mod tests {
             "[dependencies.query]\npackage = \"datafusion\"\n",
             "[target.'cfg(unix)'.dependencies]\nlettre = \"0.11\"\n",
             "[workspace.dependencies]\ndatafusion = \"54\"\n",
+            "[dependencies]\nractor = \"0.15\"\n",
+            "[dependencies]\nractor_cluster = \"0.15\"\n",
+            "[dependencies]\nlance-graph-supervisor = { git = \"x\", branch = \"main\" }\n",
+            "[dependencies]\ngraph-flow = { git = \"x\", features = [\"surreal-lance\"] }\n",
+            "[dependencies.graph-flow]\ngit = \"x\"\nfeatures = [\"surreal-lance\"]\n",
         ];
         for toml in cases {
             let v = check_manifest(None, "Cargo.toml", toml);
@@ -377,6 +396,8 @@ mod tests {
             lance = { version = \"12.*\" }\n\
             mail-parser = \"0.11\"\n\
             surreal-ish-helper = \"1\"\n\
+            attractor = \"1\"\n\
+            graph-flow = { git = \"x\", features = [\"kanban\"] }\n\
             [package]\n\
             name = \"datafusion-free\"\n";
         assert!(check_manifest(None, "Cargo.toml", toml).is_empty());

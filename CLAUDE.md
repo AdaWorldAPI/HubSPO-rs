@@ -9,8 +9,8 @@ HubSpot, reverse-engineered for its real shape (object graph, rule engine,
 communication hub, reporting/AI) and rebuilt on our stack instead of
 replicated: lance-graph + OGAR + ndarray as the substrate, spear as the
 in-process mail and document hub, stalwart as the out-of-process mail
-server, dir-sim for users and teams, graph-flow + ractor for automation,
-a2ui-rs for screens. Philosophy unchanged since the seed: understand
+server, dir-sim for users and teams, graph-flow for automation (state in
+published Lance versions), a2ui-rs for screens. Philosophy unchanged since the seed: understand
 first, reimagine second, touch grass.
 
 ## Session start — read in this order
@@ -40,8 +40,12 @@ first, reimagine second, touch grass.
    concepts (H-ADR-3).
 4. **Behaviour is `ActionDef` + `KausalSpec`**, executed through
    `GatedOgarHandler` (def-match → RBAC → state guard → commit) by
-   graph-flow under ractor. No DDL events, no SurrealQL, no behaviour in UI
-   components. *Enforced: no surrealdb / SurrealQL adapter dependency.*
+   graph-flow. Run state, delays and trigger offsets are Lance rows; due
+   runs and enrolments are Quack masks over published versions. No actors
+   (ractor is deprecated), no timer or trigger loops holding state, no DDL
+   events, no SurrealQL, no behaviour in UI components. *Enforced: no
+   `ractor`, `lance-graph-supervisor`, `surrealdb`, SurrealQL adapter or
+   `surreal*` feature (graph-flow's `surreal-lance` storage).*
 5. **Queries are Quack / mask-risc / `lance-graph-report`.** Lists and
    views are masks. No new DataFusion code — it is in a grace period
    (lance-graph, 2026-09-05). *Enforced: no `datafusion*` dependency.*
