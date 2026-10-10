@@ -86,6 +86,32 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-LIST-1 (plan H-ADR-5)
+
+`probes/p-list-1`. Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-list-1/Cargo.toml && target/probes/release/p-list-1 100000,1000000,4000000,10000000`.
+Stored mask = one bit per stable row id; predicate `a >= 900`; 1,000
+changes (500 updates flipping membership, 250 inserts, 250 deletes);
+median of 5 runs. Each run asserts the incremental mask equals a full
+recompute. Measured 2026-10-10:
+
+| N | fragments | members | full scan ms | step ms | alloc KiB (deletes + added) |
+|---|---|---|---|---|---|
+| 100k | 3 | 9,988 | 5.7 | 1.70 | 971 |
+| 1M | 3 | 99,988 | 24.2 | 2.24 | 743 + 224 |
+| 4M | 6 | 399,990 | 69.3 | 2.07 | 1,357 + 224 |
+| 10M | 12 | 999,990 | 196.4 | 2.64 | 2,580 + 224 |
+
+Verdict: **time passes** (2.6 ms against 10 ms). **Allocation is not
+independent of the population**: the added-row scan is flat (224 KiB), but
+`delta().get_deleted_row_ids()` costs ~200 KiB per fragment whose deletion
+vector changed, and 250 random deletes touch every fragment. It is bounded
+by min(changes, fragments), not by rows. A leaner delete path (deletion-
+vector diff + row-id sequence per touched fragment, no anti-join) needs
+Lance's row-id sequence loader, which is not public. The predicate is a
+plain loop over 750 changed rows standing in for the Quack program.
+Disable run: skipping the delete clears → assertion red; restored green.
+
 ## Probe P-HIST-1 (plan §5.2)
 
 `probes/p-hist-1`. Command:

@@ -47,7 +47,7 @@
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
 | D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Queued |  |
-| D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued |  |
+| D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M (budget 10 ms); alloc ∝ fragments touched |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | Queued |  |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
 | D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued |  |
