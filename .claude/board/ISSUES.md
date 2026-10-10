@@ -44,7 +44,7 @@
 
 ## ISS-LG-PREFLIGHT-STALE-PINS — consumer preflight whitelists old lance pins
 
-- **Status:** IN PR lance-graph #1436. Operator confirmed 2026-10-10: the whole fleet is on lance 12 / lancedb 0.39; this workspace floats `12.*` / `0.39.*`.
+- **Status:** RESOLVED 2026-10-10 by lance-graph #1436. Operator confirmed 2026-10-10: the whole fleet is on lance 12 / lancedb 0.39; this workspace floats `12.*` / `0.39.*`.
 - **Where:** lance-graph `.claude/knowledge/ogar-consumer-preflight.md`.
 - **What:** it whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph
   `CLAUDE.md` floats `12.*` / `0.39.*`. Approved 2026-10-10 (OD-11): follow
