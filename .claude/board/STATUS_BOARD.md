@@ -39,7 +39,7 @@
 | D-STO-2 | KV value store for variable-length properties; zero-copy lens reads | M | Queued |  |
 | D-STO-3 | Edge lanes + association labels (H-ADR-4); cardinality invariants as Quack `GroupReduce` | L | Queued |  |
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | Queued |  |
-| D-STO-5 | Property history via version log + P-HIST-1 probe | M | Queued |  |
+| D-STO-5 | Property history via version log + P-HIST-1 probe | M | Blocked | P-HIST-1 failed 2026-10-10 (best 46 ms vs 20 ms); next: reader reuse vs value-carrying index |
 | D-STO-6 | Importer (value oracle, part 1): sandbox portal → crm-sim plan → commit; counts compared per object type | L | Queued |  |
 
 ## Wave 3 — Query, lists, views, reports

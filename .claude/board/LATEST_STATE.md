@@ -86,6 +86,31 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-HIST-1 (plan §5.2)
+
+`probes/p-hist-1`. Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-hist-1/Cargo.toml && target/probes/release/p-hist-1 100000,1000000`.
+1,000 versions × 100 random updates (`a = a + 1`); the target record is in
+every 10th batch, so it changes 100 times; median of 3 runs, ms. Every arm
+asserts the same 101 values. Measured 2026-10-10:
+
+| N | frags | time travel | change chain | address index | concurrent (32) | checkouts |
+|---|---|---|---|---|---|---|
+| 100k | 1001 | 38,626 | 2,803 | 115.8 | 45.4 | 0 |
+| 1M | 1001 | 147,166 | 14,887 | 109.0 | 46.1 | 0 |
+
+Verdict: **fails the 20 ms budget.** Where the time goes (split, 1M rows):
+checkout 0.2–3 ms; the first `take_rows` on a freshly checked-out version
+91–178 ms (it builds that version's stable-row-id map); a second take
+about 1 ms. The address index (per-record `(version, row address)`; old
+copies read with `read_physical_slice`, which ignores deletions) skips the
+map and is flat in N, but costs about 1 ms per read sequentially and 0.45
+ms concurrently, one fragment open each. A record changed in all 1,000
+versions would take about 450 ms. Disable run: pointing every index entry
+at the latest copy → assertion red (100 × 101). Not probed: compaction
+(fragment leaves the manifest; the arm then checks out the version, a path
+these runs never hit) and version cleanup, which deletes the old files.
+
 ## Mint dossier (D-ONT-3)
 
 `.claude/plans/hubspo-concept-mint-dossier-v1.md`: 15 MINT, 10 ALIAS rows,

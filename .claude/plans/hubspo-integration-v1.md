@@ -803,6 +803,19 @@ Probe P-HIST-1 measures "history of one property on one record over N
 versions" latency; if it fails the budget, a per-property change index
 (positions × versions bitmap) is added — an index, not a second truth.
 
+*Measured 2026-10-10 (P-HIST-1, board LATEST_STATE):* the budget fails
+with every reader that uses only the version log. Reading a row by stable
+id in an old version builds that version's row-id map first (10–180 ms,
+growing with N), so time travel (147 s at 1M rows) and walking
+`_row_last_updated_at_version` back (14.9 s) both fail. The change index
+lands as a per-record list of `(version, row address)`: superseded copies
+stay readable in their immutable fragment files, so each entry is one
+physical-slice read with no checkout. That is 109 ms sequential and 46 ms
+with 32 reads in flight for 101 changes, flat from 100k to 1M rows —
+still over 20 ms. The floor is about 0.45 ms per read, one fragment open
+each. D-STO-5 stays blocked until a follow-up probe measures reusing open
+fragment readers versus carrying the scalar value in the index entry.
+
 ### 5.3 Timeline
 
 The record timeline is spear's `activity` table (D-HUB-4) joined on
@@ -1042,7 +1055,7 @@ with identical responses modulo ids/timestamps.
 |---|---|---|
 | P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold |
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 |
-| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms |
+| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows |
