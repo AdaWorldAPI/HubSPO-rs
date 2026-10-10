@@ -85,6 +85,26 @@
 - Quack became consumable by git with lance-graph #1457
   (`ISS-LG-MASKRISC-PATH-NDARRAY`, resolved).
 
+## Board view (D-QRY-3, board half)
+
+- `hubspo-query::board::Board`: per (pipeline, stage), record count and
+  amount sum as two `GroupReduce` programs over the composite address
+  `pipeline × stages + stage` (no row ids, no composite key lane).
+  Records without an amount are counted, not summed; a stage whose records
+  all lack one reads `amount: None`, never `0`. `weighted()` is exact in
+  minor units × basis points (stage total × p = Σ record × p, tested).
+- `tests/board_oracle.rs`: unfiltered, filtered and narrow boards equal a
+  plain per-cell tally over 6,000 deals (3 pipelines × 7 stages, 4 % deleted,
+  25 % without amount, one stage with no amounts at all).
+  Disable runs 2026-10-10: sum without the amount validity (3 red), empty
+  sum read as 0 (2 red), pipeline/stage swapped (3 red), zero group
+  universe accepted (1 red), empty stages reported (1 red — the narrow-board
+  test, added after this disable first stayed green: every earlier fixture
+  occupied all 21 stages).
+- Open (the saved-view half): view definitions as data, and sorting.
+  Quack has no `ORDER BY` (order is storage order), so a table view sorted
+  by a property needs its own decision.
+
 ## Lists (D-QRY-2)
 
 - `hubspo-query::list`: every list operation is a Quack filter over planes
