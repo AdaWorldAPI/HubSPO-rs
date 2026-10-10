@@ -25,7 +25,7 @@ members = [
 version = "0.1.0"
 edition = "2024"
 # rust-toolchain.toml pins the channel; keep the two in step.
-rust-version = "1.98.1"
+rust-version = "1.99.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/AdaWorldAPI/HubSPO-rs"
 
@@ -35,7 +35,7 @@ repository = "https://github.com/AdaWorldAPI/HubSPO-rs"
 #   pins on our own repos, no `vendor/` symlinks, no paths that escape the repo.
 #   ndarray's default branch is `master`; every other sibling is `main`.
 # - The lance family is crates.io upstream and floats on its patch:
-#   `12.*` / `0.39.*` / `58`, never an exact `.0.0` (lance-graph CLAUDE.md,
+#   `13.*` / `0.40.*` / `58`, never an exact `.0.0` (lance-graph CLAUDE.md,
 #   Key Dependencies). One ndarray in the graph.
 # - An entry here is fetched only once a member uses it, so declaring the
 #   whole stack now costs nothing and fixes the coordinates once.
@@ -80,8 +80,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 # Lance family (crates.io upstream, floating patch).
-lance = { version = "12.*", default-features = false }
-lancedb = { version = "0.39.*", default-features = false }
+lance = { version = "13.*", default-features = false }
+lancedb = { version = "0.40.*", default-features = false }
 arrow = "58"
 
 [workspace.lints.rust]

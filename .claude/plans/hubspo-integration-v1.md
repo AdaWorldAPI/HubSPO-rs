@@ -229,6 +229,9 @@ underneath and is never something a customer must learn.
 - Pins (lance-graph `CLAUDE.md` § Key Dependencies): `lance = "12.*"`,
   `lancedb = "0.39.*"`, `arrow = "58"`, `datafusion = "54"`; never a
   `.0.0` exact pin; toolchain `1.98.1` (`rust-toolchain.toml:2`).
+  ⊘ Superseded 2026-10-10: the fleet moved to toolchain `1.99.0` and
+  `lance = "13.*"` / `lancedb = "0.40.*"` (arrow 58 / datafusion 54
+  unchanged); H-ADR-14 follows.
 
 ### 2.4 ndarray (the foundation)
 
@@ -592,12 +595,12 @@ HubSPO-rs consumes spear's activity table rather than defining a second.
 
 ### H-ADR-14 — Build hygiene inherited from the fleet
 
-- `rust-toolchain.toml` `channel = "1.98.1"`; edition 2024 (matches OGAR,
+- `rust-toolchain.toml` `channel = "1.99.0"` (was 1.98.1 until the fleet bump of 2026-10-10); edition 2024 (matches OGAR,
   a2ui-rs).
 - Git deps on `branch = "main"` for lance-graph-*, OGAR crates, ndarray,
   a2ui-rs, spear, rs-graph-llm (ndarray's default branch is `master`, not
   `main`); lance/lancedb/arrow/datafusion floated per
-  lance-graph's family (`12.*`, `0.39.*`, `58`, `54`), never exact `.0.0`.
+  lance-graph's family (`13.*`, `0.40.*`, `58`, `54`), never exact `.0.0`.
   One ndarray in the graph (cargo-substrate law). No `vendor/` symlinks,
   no relative paths that escape the repo in committed manifests.
 - CI: `cargo test --workspace`, `clippy --workspace --all-targets --no-deps

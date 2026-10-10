@@ -59,7 +59,7 @@ Wave 0 (foundation) is in progress. See `.claude/board/STATUS_BOARD.md`.
 cargo test --workspace
 ```
 
-Toolchain 1.98.1 is pinned in `rust-toolchain.toml`. See `CLAUDE.md` for
+Toolchain 1.99.0 is pinned in `rust-toolchain.toml`. See `CLAUDE.md` for
 the full check set.
 
 ## License
