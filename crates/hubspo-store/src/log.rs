@@ -289,18 +289,18 @@ impl Log {
     ///
     /// # Errors
     ///
-    /// [`LogError::Corrupt`] if `col` is not a lane of `specs` or a matching
-    /// record does not decode, and [`LogError::Lance`] if the scan fails.
+    /// [`LogError::Corrupt`] if `col` is not a lane of `specs`, or a matching
+    /// record does not decode (an absent value in a required lane included),
+    /// and [`LogError::Lance`] if the scan fails.
     pub async fn history(
         &self,
         specs: &[LaneSpec],
         row: u32,
         col: Col,
     ) -> Result<Vec<Entry>, LogError> {
-        let kind = specs
+        let spec = *specs
             .get(usize::from(col.0))
-            .ok_or(LogError::Corrupt("lane"))?
-            .kind;
+            .ok_or(LogError::Corrupt("lane"))?;
         if self.latest().await? == 0 {
             return Ok(Vec::new());
         }
@@ -354,8 +354,12 @@ impl Log {
             for i in materialize_rows(&hits, n) {
                 let change = if op.value(i) == DELETE {
                     Change::Deleted
+                } else if !present.value(i) && !spec.nullable {
+                    // Replay refuses this record (`Table::apply`); history
+                    // must not report a state the table can never hold.
+                    return Err(LogError::Corrupt("absent value in a required lane"));
                 } else {
-                    Change::Set(present.value(i).then_some(match kind {
+                    Change::Set(present.value(i).then_some(match spec.kind {
                         LaneKind::U32 => Value::U32(value.value(i)),
                         LaneKind::I32 => Value::I32(value.value(i).cast_signed()),
                     }))

@@ -289,3 +289,79 @@ async fn history_refuses_an_unknown_lane_and_reads_an_empty_log() {
         other => panic!("expected Corrupt(lane), got {other:?}"),
     }
 }
+
+/// Append one raw record to the log, bypassing `commit` (a corrupt writer).
+async fn append_raw(uri: &str, version: u64, op: u32, row: u32, lane: u32, present: bool) {
+    use arrow::array::{BooleanArray, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Arc;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("version", DataType::UInt64, false),
+        Field::new("owner", DataType::UInt32, false),
+        Field::new("op", DataType::UInt32, false),
+        Field::new("row", DataType::UInt32, false),
+        Field::new("lane", DataType::UInt32, false),
+        Field::new("present", DataType::Boolean, false),
+        Field::new("value", DataType::UInt32, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(UInt64Array::from(vec![version])),
+            Arc::new(UInt32Array::from(vec![OWNER])),
+            Arc::new(UInt32Array::from(vec![op])),
+            Arc::new(UInt32Array::from(vec![row])),
+            Arc::new(UInt32Array::from(vec![lane])),
+            Arc::new(BooleanArray::from(vec![present])),
+            Arc::new(UInt32Array::from(vec![0u32])),
+        ],
+    )
+    .expect("batch");
+    let params = lance::dataset::WriteParams {
+        mode: lance::dataset::WriteMode::Append,
+        ..Default::default()
+    };
+    lance::Dataset::write(
+        RecordBatchIterator::new(vec![Ok(batch)], schema),
+        uri,
+        Some(params),
+    )
+    .await
+    .expect("append");
+}
+
+/// An absent value in a required lane is a state the table can never hold:
+/// replay refuses it, so history must too, rather than report `Set(None)`.
+#[tokio::test(flavor = "multi_thread")]
+async fn history_refuses_an_absent_value_in_a_required_lane() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let uri = dir.path().join("deals.lance");
+    let uri = uri.to_str().expect("utf8");
+    let log = Log::new(uri);
+    let mut t = Table::new(OWNER, &SPECS).expect("table");
+    let b = Batch {
+        owner: OWNER,
+        inserts: vec![vec![Some(Value::U32(1)), None]],
+        ..Batch::default()
+    };
+    log.commit(&mut t, &b).await.expect("commit");
+    // Silence half: the nullable lane's absent value is a valid history.
+    assert_eq!(
+        log.history(&SPECS, 0, Col(1)).await.expect("history"),
+        vec![Entry {
+            version: 1,
+            owner: OWNER,
+            change: Change::Set(None),
+        }]
+    );
+    // SET row 0, lane 0 (required), absent.
+    append_raw(uri, 2, 1, 0, 0, false).await;
+    match log.history(&SPECS, 0, Col(0)).await {
+        Err(LogError::Corrupt("absent value in a required lane")) => {}
+        other => panic!("expected Corrupt, got {other:?}"),
+    }
+    assert!(
+        log.replay(OWNER, &SPECS).await.is_err(),
+        "replay refuses it too"
+    );
+}
