@@ -229,6 +229,9 @@ underneath and is never something a customer must learn.
 - Pins (lance-graph `CLAUDE.md` § Key Dependencies): `lance = "12.*"`,
   `lancedb = "0.39.*"`, `arrow = "58"`, `datafusion = "54"`; never a
   `.0.0` exact pin; toolchain `1.98.1` (`rust-toolchain.toml:2`).
+  ⊘ Superseded 2026-10-10: the fleet moved to toolchain `1.99.0` and
+  `lance = "13.*"` / `lancedb = "0.40.*"` (arrow 58 / datafusion 54
+  unchanged); H-ADR-14 follows.
 
 ### 2.4 ndarray (the foundation)
 
@@ -592,12 +595,12 @@ HubSPO-rs consumes spear's activity table rather than defining a second.
 
 ### H-ADR-14 — Build hygiene inherited from the fleet
 
-- `rust-toolchain.toml` `channel = "1.98.1"`; edition 2024 (matches OGAR,
+- `rust-toolchain.toml` `channel = "1.99.0"` (was 1.98.1 until the fleet bump of 2026-10-10); edition 2024 (matches OGAR,
   a2ui-rs).
 - Git deps on `branch = "main"` for lance-graph-*, OGAR crates, ndarray,
   a2ui-rs, spear, rs-graph-llm (ndarray's default branch is `master`, not
   `main`); lance/lancedb/arrow/datafusion floated per
-  lance-graph's family (`12.*`, `0.39.*`, `58`, `54`), never exact `.0.0`.
+  lance-graph's family (`13.*`, `0.40.*`, `58`, `54`), never exact `.0.0`.
   One ndarray in the graph (cargo-substrate law). No `vendor/` symlinks,
   no relative paths that escape the repo in committed manifests.
 - CI: `cargo test --workspace`, `clippy --workspace --all-targets --no-deps
@@ -895,7 +898,7 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 
 | D-id | Deliverable | Size | Deps |
 |---|---|---|---|
-| D-MAIL-1 | stalwart deployment profile (separate service; dir-sim wired into config + `main` features — **stalwart-side fork work**, AGPL stays there); OIDC for login | L | G5 |
+| D-MAIL-1 | stalwart deployment profile (separate service, AGPL stays there). stalwart keeps its own directory (internal store, or LDAP/OIDC) for delivery and login; the CRM joins contacts to mailboxes through spear's placement over the dir-sim version (`spear/src/mail/directory.rs`). No dir-sim backend in stalwart (OD-12) | M | G5 |
 | D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | spear D-HUB-4/5 |
 | D-MAIL-3 | One-to-one email send from a record via JMAP `EmailSubmission`; `send_receipts` row | M | D-MAIL-2 |
 | D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`, no impl in tree) | L | D-MAIL-2 |
@@ -1056,6 +1059,7 @@ below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
 | OD-9 | Edition 2024 for HubSPO-rs | yes |
 | OD-10 | Which HubSpot sandbox portal is the value oracle, and who holds its token | operator |
 | OD-11 | lance-graph `ogar-consumer-preflight.md` still whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph `CLAUDE.md` floats `12.*` / `0.39.*` | follow `CLAUDE.md`; fix the preflight upstream |
+| OD-12 | How stalwart gets users and teams (`ISS-STALWART-DIRSIM-WIRING`): (a) build the dir-sim backend outside stalwart's config model, (b) dir-sim persistence + stalwart's schema generator first, (c) stalwart keeps its own directory and the CRM join key comes from spear's placement | (c) — approved 2026-10-10 |
 
 ---
 

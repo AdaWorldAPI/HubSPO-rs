@@ -52,7 +52,7 @@
 
 ## ISS-STALWART-DIRSIM-WIRING — stalwart's dir-sim backend is unreachable
 
-- **Status:** OPEN (blocks D-MAIL-1)
+- **Status:** RESOLVED 2026-10-10 — operator chose option (c) (plan OD-12). D-MAIL-1 no longer depends on stalwart fork work; the stalwart dir-sim backend stays a library until option (b) is worth doing.
 - **Where:** stalwart `crates/directory` (fork), `crates/main` features,
   config.
 - **What:** the `dir-sim` recipient backend exists but nothing constructs
@@ -75,8 +75,7 @@
   CRM's contact↔mailbox join key comes from spear's placement over the
   same dir-sim version (`spear/src/mail/directory.rs`), which already
   ships. The stalwart backend stays a library until (b) is worth doing.
-- **Status note:** awaiting the operator's choice; nothing changed in
-  stalwart.
+- **Status note:** nothing changed in stalwart.
 
 ## ISS-ORACLE-PORTAL — no HubSpot sandbox portal yet
 

@@ -6,7 +6,7 @@
 
 ## Workspace
 
-- 18 crates, edition 2024, toolchain 1.98.1 (`rust-toolchain.toml`).
+- 18 crates, edition 2024, toolchain 1.99.0 (`rust-toolchain.toml`; bumped with the fleet 2026-10-10).
 - 17 of them are empty on purpose: the crate layout from plan §4, with a
   module doc naming each crate's zone and deliverables.
 - `hubspo-port` depends on `lance-graph-contract` (feature `guid-v3-tail`)

@@ -76,7 +76,7 @@ cargo clippy --workspace --all-targets --no-deps -- -D warnings
 cargo test --workspace
 ```
 
-- Toolchain: `rust-toolchain.toml` pins 1.98.1; bare `cargo` resolves to
+- Toolchain: `rust-toolchain.toml` pins 1.99.0; bare `cargo` resolves to
   it. Do not add a `+<version>` prefix.
 - Never set `RUSTFLAGS` in the environment: it silently replaces every
   cargo-config rustflags entry (ndarray incident).

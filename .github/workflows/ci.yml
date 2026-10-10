@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # rustup reads rust-toolchain.toml (1.98.1 + rustfmt + clippy).
+      # rustup reads rust-toolchain.toml (1.99.0 + rustfmt + clippy).
       - name: Install pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
