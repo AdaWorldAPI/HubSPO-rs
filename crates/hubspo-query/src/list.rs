@@ -17,7 +17,8 @@
 //! - **Static list.** Membership is whatever was added. [`add`] and
 //!   [`remove`] take a plane of the records named in the request. A static
 //!   list's stored bits can outlive a deleted record, so readers go through
-//!   [`members`], which conjoins `live`.
+//!   [`members`], which conjoins `live`. This relies on ordinals never being
+//!   reused (see [`add`]).
 //! - **History.** Between two stored versions of one list, [`added`] and
 //!   [`removed`] are the two differences.
 //!
@@ -37,13 +38,15 @@ pub fn refresh(predicate: &Filter, prev: Mask, changed: Mask) -> Filter {
     ])
 }
 
-/// A static list after adding the records in `rows`. Only live records are
-/// added.
-pub fn add(prev: Mask, rows: Mask, live: Mask) -> Filter {
-    Filter::or([
-        Filter::plane(prev),
-        Filter::and([Filter::plane(rows), Filter::plane(live)]),
-    ])
+/// A static list after adding the records in `rows`.
+///
+/// Not gated on `live`: a bit stored for a deleted record is inert, because
+/// every read goes through [`members`]. That holds only while ordinals are
+/// never reused, which the store guarantees (records are appended, the base
+/// is never rewritten; P-SPARSE-1). A store that reused ordinals would have
+/// to clear a deleted record's bit in every static list first.
+pub fn add(prev: Mask, rows: Mask) -> Filter {
+    Filter::or([Filter::plane(prev), Filter::plane(rows)])
 }
 
 /// A static list after removing the records in `rows`.

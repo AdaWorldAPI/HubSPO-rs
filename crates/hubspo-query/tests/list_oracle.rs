@@ -153,7 +153,7 @@ fn table(r: &mut Rng) -> Table {
 
 #[test]
 fn an_active_list_refreshed_on_changes_equals_full_recomputation() {
-    let mut r = Rng(0x0A_C71E);
+    let mut r = Rng(0x000A_C71E);
     let cat = catalog();
     let pred = predicate(&cat);
     let mut t = table(&mut r);
@@ -208,7 +208,9 @@ fn an_active_list_refreshed_on_changes_equals_full_recomputation() {
 
 #[test]
 fn a_static_list_follows_adds_removes_and_deletes() {
-    let mut r = Rng(0x57A7_1C);
+    // Ordinals are never reused here, as in the store: a deleted record
+    // stays dead.
+    let mut r = Rng(0x0057_A71C);
     let mut t = table(&mut r);
     let none = bits([]);
     let mut want: BTreeSet<usize> = BTreeSet::new();
@@ -221,8 +223,8 @@ fn a_static_list_follows_adds_removes_and_deletes() {
             want.retain(|row| !named.contains(row));
             run(&t, list::remove(PREV, CHANGED), &prev, &rows, &none)
         } else {
-            want.extend(named.iter().copied().filter(|&row| t.live[row]));
-            run(&t, list::add(PREV, CHANGED, LIVE), &prev, &rows, &none)
+            want.extend(named.iter().copied());
+            run(&t, list::add(PREV, CHANGED), &prev, &rows, &none)
         };
         // Some members are deleted between requests.
         for _ in 0..5 {
@@ -247,7 +249,7 @@ fn refresh_reads_the_predicate_only_where_records_changed() {
     // row. Only rows 0..100 are reported changed, so only they may be
     // re-evaluated; a refresh that re-reads the whole table would rewrite
     // the rest too.
-    let mut r = Rng(0x1C_4A6E);
+    let mut r = Rng(0x001C_4A6E);
     let t = table(&mut r);
     let pred = predicate(&catalog());
     let none = bits([]);

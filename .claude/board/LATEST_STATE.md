@@ -85,6 +85,31 @@
 - Quack became consumable by git with lance-graph #1457
   (`ISS-LG-MASKRISC-PATH-NDARRAY`, resolved).
 
+## Lists (D-QRY-2)
+
+- `hubspo-query::list`: every list operation is a Quack filter over planes
+  the caller names, run by mask-risc (no row ids, no population loop).
+  - `refresh(predicate, prev, changed)` = `(prev ∧ ¬changed) ∨
+    (predicate ∧ changed)`: an active list re-reads the predicate only
+    where records changed. Deletes need no special case (the compiled
+    predicate carries `live`).
+  - static lists: `add`, `remove`, and `members` (`∧ live` on every read);
+  - history: `added` / `removed` between two stored versions.
+- Invariant this rests on: **ordinals are never reused** (records are
+  appended, the base is never rewritten; P-SPARSE-1). A store that reused
+  ordinals would have to clear a deleted record's bit in every static list.
+- `tests/list_oracle.rs`: 40 rounds of updates / inserts / deletes keep a
+  refreshed list equal to full recomputation and to a plain loop (added /
+  removed equal plain set differences, both > 100 over the run); a static
+  list equals a plain set through adds, removes and deletes; refresh keeps
+  stored bits outside the changed rows (> 1,000 of them disagree with the
+  predicate on purpose).
+  Disable runs 2026-10-10 (`cargo test -p hubspo-query --test list_oracle`):
+  refresh keeping stale bits (2 red), refresh re-reading every row (1 red),
+  `members` without `live` (1 red), `added` computing `removed` (1 red),
+  `remove` keeping rows (1 red). A `live` gate inside `add` stayed green
+  and was removed: `members` already applies it on every read.
+
 ## Harvest (D-ONT-1, public-catalog half)
 
 - `scripts/fetch-hubspot-specs.sh` → `.cache/` (gitignored), then
