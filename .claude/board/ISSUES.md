@@ -47,6 +47,24 @@
   it, `crates/main` does not forward the feature, and it cannot
   authenticate (needs OIDC/LDAP alongside). Fork-only work; stalwart's
   `AGENTS.md` forbids upstream contributions by agents.
+- **Investigated 2026-10-10 — two blockers, not one wiring step:**
+  1. `lance-graph-dir-sim` has no persistence: a `VersionStore` is built
+     in memory from `ogar-ad` records (`observe::from_ad`); there is no
+     save/load format a server could point a config entry at.
+  2. stalwart's configuration types (`crates/registry/src/schema/*.rs`) are
+     generated ("auto-generated. Do not edit directly"); the generator is
+     not in the repository (only `resources/schema/schema.json.gz` + its
+     hash). A `DirSim` directory config variant cannot be added without it.
+- **Options:** (a) build `DirSimDirectory` in `Directories::build` from a
+  setting read outside the registry — bypasses stalwart's config model;
+  (b) add dir-sim persistence in lance-graph first and obtain the schema
+  generator; (c) **recommended:** D-MAIL-1 does not need it. stalwart keeps
+  its own directory (internal or LDAP/OIDC) for delivery and login, and the
+  CRM's contact↔mailbox join key comes from spear's placement over the
+  same dir-sim version (`spear/src/mail/directory.rs`), which already
+  ships. The stalwart backend stays a library until (b) is worth doing.
+- **Status note:** awaiting the operator's choice; nothing changed in
+  stalwart.
 
 ## ISS-ORACLE-PORTAL — no HubSpot sandbox portal yet
 
