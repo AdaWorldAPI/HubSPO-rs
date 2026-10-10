@@ -93,7 +93,7 @@ fn random_batch(r: &mut Rng, t: &Table) -> Batch {
 #[tokio::test(flavor = "multi_thread")]
 async fn replay_rebuilds_the_committed_table_exactly() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let mut log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let mut r = Rng(0x0000_10C1);
     for round in 1..=25u64 {
@@ -118,7 +118,7 @@ async fn replay_rebuilds_the_committed_table_exactly() {
 #[tokio::test(flavor = "multi_thread")]
 async fn an_empty_log_replays_to_an_empty_table() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let log = Log::new(dir.path().join("none.lance").to_str().expect("utf8"));
+    let mut log = Log::new(dir.path().join("none.lance").to_str().expect("utf8"));
     let t = log.replay(OWNER, &SPECS).await.expect("replay");
     assert_eq!((t.version(), t.n_rows()), (0, 0));
 }
@@ -127,7 +127,7 @@ async fn an_empty_log_replays_to_an_empty_table() {
 async fn a_second_writer_is_caught_before_it_applies() {
     let dir = tempfile::tempdir().expect("tempdir");
     let uri = dir.path().join("deals.lance");
-    let log = Log::new(uri.to_str().expect("utf8"));
+    let mut log = Log::new(uri.to_str().expect("utf8"));
     let mut r = Rng(0x0000_2A17);
     let mut a = Table::new(OWNER, &SPECS).expect("a");
     let first = random_batch(&mut r, &a);
@@ -155,7 +155,7 @@ async fn a_second_writer_is_caught_before_it_applies() {
 async fn a_refused_batch_writes_nothing() {
     let dir = tempfile::tempdir().expect("tempdir");
     let uri = dir.path().join("deals.lance");
-    let log = Log::new(uri.to_str().expect("utf8"));
+    let mut log = Log::new(uri.to_str().expect("utf8"));
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let mut r = Rng(0x0000_3E55);
     let ok = random_batch(&mut r, &t);
@@ -193,7 +193,7 @@ async fn a_refused_batch_writes_nothing() {
 #[tokio::test(flavor = "multi_thread")]
 async fn replay_refuses_a_foreign_owner() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let mut log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let mut r = Rng(0x0000_4F0E);
     let b = random_batch(&mut r, &t);
@@ -211,7 +211,7 @@ async fn replay_refuses_a_foreign_owner() {
 #[tokio::test(flavor = "multi_thread")]
 async fn history_is_every_write_of_one_property_in_order() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let mut log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let mut r = Rng(0x0000_5157);
     // Oracle: per (row, lane), the writes in order.
@@ -247,15 +247,39 @@ async fn history_is_every_write_of_one_property_in_order() {
     }
     for row in 0..t.n_rows() as u32 {
         for lane in 0..2u16 {
-            let got = log.history(&SPECS, row, Col(lane)).await.expect("history");
+            let got = log.history(&SPECS, row, Col(lane)).expect("history");
             let exp = want.get(&(row, lane)).cloned().unwrap_or_default();
             assert_eq!(got, exp, "row {row} lane {lane}");
         }
     }
+    // Replayable: a second log replayed from disk holds the same records,
+    // so every history read from it is identical.
+    let mut again = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let back = again.replay(OWNER, &SPECS).await.expect("replay");
+    assert_eq!(again.len(), log.len());
+    for row in 0..t.n_rows() as u32 {
+        for lane in 0..2u16 {
+            assert_eq!(
+                again.history(&SPECS, row, Col(lane)).expect("again"),
+                log.history(&SPECS, row, Col(lane)).expect("log"),
+            );
+        }
+    }
+    // A log whose records are not resident at the table's version refuses
+    // to commit: its history would miss the batches before it.
+    let mut cold = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    let mut t2 = back;
+    let extra = random_batch(&mut r, &t2);
+    match cold.commit(&mut t2, &extra).await {
+        Err(LogError::Diverged {
+            expected: 30,
+            found: 0,
+        }) => {}
+        other => panic!("expected Diverged {{30, 0}}, got {other:?}"),
+    }
     // A row that does not exist has no history.
     let none = log
         .history(&SPECS, t.n_rows() as u32 + 5, Col(0))
-        .await
         .expect("history");
     assert!(none.is_empty());
     // Anti-vacuity: histories with updates, with a deletion, and with a
@@ -273,18 +297,13 @@ async fn history_is_every_write_of_one_property_in_order() {
 #[tokio::test(flavor = "multi_thread")]
 async fn history_refuses_an_unknown_lane_and_reads_an_empty_log() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
-    assert!(
-        log.history(&SPECS, 0, Col(0))
-            .await
-            .expect("empty")
-            .is_empty()
-    );
+    let mut log = Log::new(dir.path().join("deals.lance").to_str().expect("utf8"));
+    assert!(log.history(&SPECS, 0, Col(0)).expect("empty").is_empty());
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let mut r = Rng(0x0000_6A11);
     let b = random_batch(&mut r, &t);
     log.commit(&mut t, &b).await.expect("commit");
-    match log.history(&SPECS, 0, Col(2)).await {
+    match log.history(&SPECS, 0, Col(2)) {
         Err(LogError::Corrupt("lane")) => {}
         other => panic!("expected Corrupt(lane), got {other:?}"),
     }
@@ -330,14 +349,15 @@ async fn append_raw(uri: &str, version: u64, op: u32, row: u32, lane: u32, prese
     .expect("append");
 }
 
-/// An absent value in a required lane is a state the table can never hold:
-/// replay refuses it, so history must too, rather than report `Set(None)`.
+/// An absent value in a required lane is a state the table can never hold.
+/// Replay refuses such a record, and a refused replay leaves the resident
+/// records as they were, so history can never report it.
 #[tokio::test(flavor = "multi_thread")]
-async fn history_refuses_an_absent_value_in_a_required_lane() {
+async fn a_corrupt_record_never_becomes_resident() {
     let dir = tempfile::tempdir().expect("tempdir");
     let uri = dir.path().join("deals.lance");
     let uri = uri.to_str().expect("utf8");
-    let log = Log::new(uri);
+    let mut log = Log::new(uri);
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let b = Batch {
         owner: OWNER,
@@ -345,23 +365,30 @@ async fn history_refuses_an_absent_value_in_a_required_lane() {
         ..Batch::default()
     };
     log.commit(&mut t, &b).await.expect("commit");
-    // Silence half: the nullable lane's absent value is a valid history.
+    let before = log.history(&SPECS, 0, Col(0)).expect("history");
     assert_eq!(
-        log.history(&SPECS, 0, Col(1)).await.expect("history"),
+        before,
+        vec![Entry {
+            version: 1,
+            owner: OWNER,
+            change: Change::Set(Some(Value::U32(1))),
+        }]
+    );
+    // The nullable lane's absent value is a valid history.
+    assert_eq!(
+        log.history(&SPECS, 0, Col(1)).expect("history"),
         vec![Entry {
             version: 1,
             owner: OWNER,
             change: Change::Set(None),
         }]
     );
-    // SET row 0, lane 0 (required), absent.
+    // SET row 0, lane 0 (required), absent — written around `commit`.
     append_raw(uri, 2, 1, 0, 0, false).await;
-    match log.history(&SPECS, 0, Col(0)).await {
-        Err(LogError::Corrupt("absent value in a required lane")) => {}
-        other => panic!("expected Corrupt, got {other:?}"),
-    }
     assert!(
         log.replay(OWNER, &SPECS).await.is_err(),
-        "replay refuses it too"
+        "replay refuses it"
     );
+    assert_eq!(log.history(&SPECS, 0, Col(0)).expect("history"), before);
+    assert_eq!(log.len(), 3, "the resident records are unchanged");
 }

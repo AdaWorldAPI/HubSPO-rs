@@ -27,8 +27,13 @@
 //! then applies it to the table. If the append fails the table is
 //! unchanged.
 //!
-//! **History (D-STO-5)** is the log itself: [`Log::history`] reads one
-//! property of one record back as the list of writes that touched it.
+//! **Resident records.** Lance is the persistence clock: [`Log::replay`]
+//! reads it once, [`Log::commit`] writes one version per batch. The records
+//! either touches stay resident, so reads fold over memory.
+//!
+//! **History (D-STO-5)** is a fold over those records: [`Log::history`]
+//! reads one property of one record back as the list of writes that touched
+//! it, without opening the dataset.
 //!
 //! Not yet: an index on `row`, and object-store URIs beyond what `lance`
 //! resolves by itself.
@@ -53,9 +58,6 @@ use crate::table::{Applied, Batch, LaneKind, LaneSpec, StoreError, Table, Value}
 const BORN: u32 = 0;
 const SET: u32 = 1;
 const DELETE: u32 = 2;
-
-/// One decoded log record: `(version, owner, op, row, lane, present, value)`.
-type Fact = (u64, u32, u32, u32, u32, bool, u32);
 
 /// Why a log operation failed.
 #[derive(Debug)]
@@ -106,7 +108,7 @@ fn schema() -> Arc<Schema> {
     ]))
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Columns {
     version: Vec<u64>,
     owner: Vec<u32>,
@@ -132,17 +134,33 @@ impl Columns {
         });
     }
 
-    fn batch(self) -> Result<RecordBatch, LogError> {
+    fn len(&self) -> usize {
+        self.version.len()
+    }
+
+    fn extend(&mut self, other: Columns) {
+        self.version.extend(other.version);
+        self.owner.extend(other.owner);
+        self.op.extend(other.op);
+        self.row.extend(other.row);
+        self.lane.extend(other.lane);
+        self.present.extend(other.present);
+        self.value.extend(other.value);
+    }
+
+    /// The records as one Arrow batch. Copies them: the copy goes to Lance,
+    /// the original stays resident.
+    fn batch(&self) -> Result<RecordBatch, LogError> {
         RecordBatch::try_new(
             schema(),
             vec![
-                Arc::new(UInt64Array::from(self.version)),
-                Arc::new(UInt32Array::from(self.owner)),
-                Arc::new(UInt32Array::from(self.op)),
-                Arc::new(UInt32Array::from(self.row)),
-                Arc::new(UInt32Array::from(self.lane)),
-                Arc::new(BooleanArray::from(self.present)),
-                Arc::new(UInt32Array::from(self.value)),
+                Arc::new(UInt64Array::from(self.version.clone())),
+                Arc::new(UInt32Array::from(self.owner.clone())),
+                Arc::new(UInt32Array::from(self.op.clone())),
+                Arc::new(UInt32Array::from(self.row.clone())),
+                Arc::new(UInt32Array::from(self.lane.clone())),
+                Arc::new(BooleanArray::from(self.present.clone())),
+                Arc::new(UInt32Array::from(self.value.clone())),
             ],
         )
         .map_err(lance_err)
@@ -190,16 +208,53 @@ pub struct Entry {
     pub change: Change,
 }
 
-/// An append-only Lance log at `uri`.
-#[derive(Debug, Clone)]
+/// An append-only Lance log at `uri`, with its records resident.
+///
+/// Lance is the persistence clock: it is read once, by [`Log::replay`], and
+/// written once per batch, by [`Log::commit`]. Every record either one
+/// touches stays resident, so reads ([`Log::history`]) fold over memory and
+/// never open the dataset. A Lance scan is what recovery pays (P-HIST-1:
+/// ~320 ms over 1,000 fragments); a fold over the same records costs
+/// nanoseconds each (lance-graph, 2026-09-24: one write buys about a
+/// million folds).
+#[derive(Default)]
 pub struct Log {
     uri: String,
+    /// Every record of versions `1..=version`, in append order.
+    records: Columns,
+    /// The last version the resident records hold.
+    version: u64,
+}
+
+impl std::fmt::Debug for Log {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Log")
+            .field("uri", &self.uri)
+            .field("version", &self.version)
+            .field("records", &self.records.len())
+            .finish()
+    }
 }
 
 impl Log {
-    /// The log at `uri` (created by the first commit).
+    /// The log at `uri` (created by the first commit). Nothing is resident
+    /// until [`Log::replay`]; a log that already holds batches must be
+    /// replayed before it can be committed to.
     pub fn new(uri: impl Into<String>) -> Self {
-        Self { uri: uri.into() }
+        Self {
+            uri: uri.into(),
+            ..Self::default()
+        }
+    }
+
+    /// How many records are resident.
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
+    /// Whether no record is resident.
+    pub fn is_empty(&self) -> bool {
+        self.records.len() == 0
     }
 
     async fn latest(&self) -> Result<u64, LogError> {
@@ -211,17 +266,25 @@ impl Log {
         }
     }
 
-    /// Validate `batch`, append it as one Lance version, then apply it.
+    /// Validate `batch`, append it as one Lance version, then apply it to
+    /// the table and to the resident records.
     ///
     /// # Errors
     ///
     /// - [`LogError::Store`]: the batch was refused; nothing was written.
-    /// - [`LogError::Diverged`]: the log was not at the table's version
-    ///   before the append, or not one past it after; nothing was applied.
+    /// - [`LogError::Diverged`]: the resident records, or the log on disk,
+    ///   were not at the table's version before the append, or the log was
+    ///   not one past it after; nothing was applied.
     /// - [`LogError::Lance`]: the append failed; nothing was applied.
-    pub async fn commit(&self, table: &mut Table, batch: &Batch) -> Result<Applied, LogError> {
+    pub async fn commit(&mut self, table: &mut Table, batch: &Batch) -> Result<Applied, LogError> {
         table.check(batch)?;
         let before = table.version();
+        if self.version != before {
+            return Err(LogError::Diverged {
+                expected: before,
+                found: self.version,
+            });
+        }
         let found = self.latest().await?;
         if found != before {
             return Err(LogError::Diverged {
@@ -230,7 +293,7 @@ impl Log {
             });
         }
         let first = u32::try_from(table.n_rows()).map_err(|_| StoreError::Full)?;
-        let records = encode(batch, before + 1, first).batch()?;
+        let records = encode(batch, before + 1, first);
         let params = WriteParams {
             mode: if before == 0 {
                 WriteMode::Create
@@ -240,7 +303,7 @@ impl Log {
             ..WriteParams::default()
         };
         let ds = Dataset::write(
-            RecordBatchIterator::new(vec![Ok(records)], schema()),
+            RecordBatchIterator::new(vec![Ok(records.batch()?)], schema()),
             &self.uri,
             Some(params),
         )
@@ -257,7 +320,10 @@ impl Log {
                 found: after,
             });
         }
-        Ok(table.apply(batch)?)
+        let applied = table.apply(batch)?;
+        self.records.extend(records);
+        self.version = applied.version;
+        Ok(applied)
     }
 
     /// Every record of the log, in storage order.
@@ -277,31 +343,25 @@ impl Log {
     /// Every write of the property is one [`Entry`]: the value given when the
     /// record was inserted (absent included), every later update, and the
     /// record's deletion. Each entry carries the version and the owner the
-    /// batch wrote on behalf of. Nothing is stored for history: it is the
-    /// log, read through one Quack program per Lance fragment batch,
-    /// `row = r AND ((lane = c AND op = SET) OR op = DELETE)`, run on
-    /// mask-risc over the log's own Arrow buffers (borrowed, not copied).
-    /// Only the matching records are decoded.
+    /// batch wrote on behalf of. Nothing is stored for history and nothing is
+    /// read from Lance: one Quack program,
+    /// `row = r AND ((lane = c AND op = SET) OR op = DELETE)`, runs on
+    /// mask-risc over the resident records, and only matches are decoded.
     ///
-    /// The read scans the whole log. P-SPARSE-1 measured 16.9 ms for 1,000
-    /// versions with a BTree index on `row`; this version has no index, and
-    /// its cost is measured by `examples/probe_history.rs`.
+    /// Only records that passed [`Table::check`] (through `commit`) or were
+    /// applied by a successful [`Log::replay`] are resident, so every match
+    /// decodes against `specs` the table was built with.
     ///
     /// # Errors
     ///
-    /// [`LogError::Corrupt`] if `col` is not a lane of `specs`, or a matching
-    /// record does not decode (an absent value in a required lane included),
-    /// and [`LogError::Lance`] if the scan fails.
-    pub async fn history(
-        &self,
-        specs: &[LaneSpec],
-        row: u32,
-        col: Col,
-    ) -> Result<Vec<Entry>, LogError> {
+    /// [`LogError::Corrupt`] if `col` is not a lane of `specs`.
+    pub fn history(&self, specs: &[LaneSpec], row: u32, col: Col) -> Result<Vec<Entry>, LogError> {
         let spec = *specs
             .get(usize::from(col.0))
             .ok_or(LogError::Corrupt("lane"))?;
-        if self.latest().await? == 0 {
+        let r = &self.records;
+        let n = r.len();
+        if n == 0 {
             return Ok(Vec::new());
         }
         // Lanes of the program: 0 = row, 1 = lane, 2 = op.
@@ -317,67 +377,52 @@ impl Log {
             agg: Agg::Rows,
         })
         .map_err(|_| LogError::Corrupt("history program"))?;
-        let mut entries = Vec::new();
-        for b in &self.scan().await? {
-            let n = b.num_rows();
-            if n == 0 {
-                continue;
-            }
-            let version = column::<UInt64Array>(b, 0, "version")?;
-            let owner = column::<UInt32Array>(b, 1, "owner")?;
-            let op = column::<UInt32Array>(b, 2, "op")?;
-            let rows = column::<UInt32Array>(b, 3, "row")?;
-            let lane = column::<UInt32Array>(b, 4, "lane")?;
-            let present = column::<BooleanArray>(b, 5, "present")?;
-            let value = column::<UInt32Array>(b, 6, "value")?;
-            let lanes = [
-                LaneRef::U32(rows.values()),
-                LaneRef::U32(lane.values()),
-                LaneRef::U32(op.values()),
-            ];
-            let planes = Planes {
-                n_rows: n,
-                masks: &[],
-                lanes: &lanes,
-            };
-            let mut hits = vec![0u64; words_for(n)];
-            let mut scratch = Scratch::for_program(&program, n)
-                .map_err(|_| LogError::Corrupt("history scratch"))?;
-            execute_into(
-                &program,
-                &planes,
-                &Foreign::NONE,
-                &mut scratch,
-                Out::Mask(&mut hits),
-            )
-            .map_err(|_| LogError::Corrupt("history program"))?;
-            for i in materialize_rows(&hits, n) {
-                let change = if op.value(i) == DELETE {
+        let lanes = [
+            LaneRef::U32(&r.row),
+            LaneRef::U32(&r.lane),
+            LaneRef::U32(&r.op),
+        ];
+        let planes = Planes {
+            n_rows: n,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let mut hits = vec![0u64; words_for(n)];
+        let mut scratch =
+            Scratch::for_program(&program, n).map_err(|_| LogError::Corrupt("history scratch"))?;
+        execute_into(
+            &program,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::Mask(&mut hits),
+        )
+        .map_err(|_| LogError::Corrupt("history program"))?;
+        // Append order is version order (the log is never compacted), so the
+        // matches are already oldest first.
+        Ok(materialize_rows(&hits, n)
+            .into_iter()
+            .map(|i| Entry {
+                version: r.version[i],
+                owner: r.owner[i],
+                change: if r.op[i] == DELETE {
                     Change::Deleted
-                } else if !present.value(i) && !spec.nullable {
-                    // Replay refuses this record (`Table::apply`); history
-                    // must not report a state the table can never hold.
-                    return Err(LogError::Corrupt("absent value in a required lane"));
                 } else {
-                    Change::Set(present.value(i).then_some(match spec.kind {
-                        LaneKind::U32 => Value::U32(value.value(i)),
-                        LaneKind::I32 => Value::I32(value.value(i).cast_signed()),
+                    Change::Set(r.present[i].then_some(match spec.kind {
+                        LaneKind::U32 => Value::U32(r.value[i]),
+                        LaneKind::I32 => Value::I32(r.value[i].cast_signed()),
                     }))
-                };
-                entries.push(Entry {
-                    version: version.value(i),
-                    owner: owner.value(i),
-                    change,
-                });
-            }
-        }
-        // No sort: the scan yields records in append order, which is version
-        // order and, within a version, written order.
-        Ok(entries)
+                },
+            })
+            .collect())
     }
 
     /// Rebuild the table of `owner` with `specs` from the log, batch by
-    /// batch, through the same [`Table::apply`] a live writer uses.
+    /// batch, through the same [`Table::apply`] a live writer uses, and make
+    /// the log's records resident.
+    ///
+    /// This is the one place Lance is read. On any error nothing becomes
+    /// resident: the log keeps what it held before.
     ///
     /// # Errors
     ///
@@ -386,15 +431,20 @@ impl Log {
     /// [`LogError::Store`] if a replayed batch is refused, and
     /// [`LogError::Diverged`] if the log's Lance version is not the number
     /// of batches in it.
-    pub async fn replay(&self, owner: MailboxId, specs: &[LaneSpec]) -> Result<Table, LogError> {
+    pub async fn replay(
+        &mut self,
+        owner: MailboxId,
+        specs: &[LaneSpec],
+    ) -> Result<Table, LogError> {
         let mut table = Table::new(owner, specs)?;
         let latest = self.latest().await?;
         if latest == 0 {
+            self.records = Columns::default();
+            self.version = 0;
             return Ok(table);
         }
-        let batches = self.scan().await?;
-        let mut facts: Vec<Fact> = Vec::new();
-        for b in &batches {
+        let mut records = Columns::default();
+        for b in &self.scan().await? {
             let version = column::<UInt64Array>(b, 0, "version")?;
             let own = column::<UInt32Array>(b, 1, "owner")?;
             let op = column::<UInt32Array>(b, 2, "op")?;
@@ -402,29 +452,26 @@ impl Log {
             let lane = column::<UInt32Array>(b, 4, "lane")?;
             let present = column::<BooleanArray>(b, 5, "present")?;
             let value = column::<UInt32Array>(b, 6, "value")?;
-            for i in 0..b.num_rows() {
-                facts.push((
-                    version.value(i),
-                    own.value(i),
-                    op.value(i),
-                    row.value(i),
-                    lane.value(i),
-                    present.value(i),
-                    value.value(i),
-                ));
-            }
+            records.version.extend_from_slice(version.values());
+            records.owner.extend_from_slice(own.values());
+            records.op.extend_from_slice(op.values());
+            records.row.extend_from_slice(row.values());
+            records.lane.extend_from_slice(lane.values());
+            records.present.extend(present.values().iter());
+            records.value.extend_from_slice(value.values());
         }
-        // No sort: records come back in append order, so each batch's facts
+        // No sort: records come back in append order, so each batch's records
         // are contiguous and in written order. A log out of order is caught
         // below, as a batch whose version is not the next one.
         let mut i = 0;
-        while i < facts.len() {
-            let version = facts[i].0;
-            let end = facts[i..]
+        let n = records.len();
+        while i < n {
+            let version = records.version[i];
+            let end = records.version[i..]
                 .iter()
-                .position(|f| f.0 != version)
-                .map_or(facts.len(), |p| i + p);
-            let batch = decode(&facts[i..end], owner, &table)?;
+                .position(|&v| v != version)
+                .map_or(n, |p| i + p);
+            let batch = decode(&records, i..end, owner, &table)?;
             let applied = table.apply(&batch)?;
             if applied.version != version {
                 return Err(LogError::Diverged {
@@ -440,6 +487,8 @@ impl Log {
                 found: table.version(),
             });
         }
+        self.records = records;
+        self.version = table.version();
         Ok(table)
     }
 }
@@ -459,14 +508,27 @@ fn column<'a, T: Array + 'static>(
         .ok_or(LogError::Corrupt(name))
 }
 
-fn decode(facts: &[Fact], owner: MailboxId, table: &Table) -> Result<Batch, LogError> {
+fn decode(
+    records: &Columns,
+    range: std::ops::Range<usize>,
+    owner: MailboxId,
+    table: &Table,
+) -> Result<Batch, LogError> {
     let specs = table.specs();
     let first = u32::try_from(table.n_rows()).map_err(|_| StoreError::Full)?;
     let mut batch = Batch {
         owner,
         ..Batch::default()
     };
-    for &(_, own, op, row, lane, present, value) in facts {
+    for k in range {
+        let (own, op, row, lane, present, value) = (
+            records.owner[k],
+            records.op[k],
+            records.row[k],
+            records.lane[k],
+            records.present[k],
+            records.value[k],
+        );
         let lane = u16::try_from(lane).map_err(|_| LogError::Corrupt("lane"))?;
         if own != owner {
             return Err(LogError::Owner {
