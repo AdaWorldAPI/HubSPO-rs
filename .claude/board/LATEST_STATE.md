@@ -145,9 +145,13 @@
 - `Log::history(specs, row, col) -> Vec<Entry>`: every write of one
   property on one record, oldest first — the inserted value (absent
   included), each update, the deletion — each with its version and owner.
-  No history store: one Quack program per log batch,
+  No history store and no Lance read: one Quack program,
   `row = r ∧ ((lane = c ∧ op = SET) ∨ op = DELETE)`, on mask-risc over the
-  log's Arrow buffers (borrowed); only matches are decoded. The log's `op`
+  log's resident records; only matches are decoded. `Log` keeps every record
+  it commits or replays resident (29 B each). Lance is the persistence
+  clock: `replay` reads it once, `commit` writes one version per batch.
+  Rule applied: one write costs about a million folds (lance-graph
+  2026-09-24); a Lance scan is recovery cost. The log's `op`
   and `lane` columns widened to `u32` for this (no data existed yet).
 - Tests: for every record and both lanes over 30 random batches, the
   history equals one written down from the batches (anti-vacuity: updates,
@@ -156,8 +160,13 @@
   DELETE arm, drop `op = SET`, lose the I32 sign. A sort by version was
   inert under a disable run and is removed: append order is version order.
   Replay dropped its sort too; a log out of order is still refused there,
-  as a batch whose version is not the next one.
-- Timing: fragmented log (1,001 fragments, 1.2M records): **336 ms**, of which the raw scan is 320 ms. Fails P-HIST-1's < 20 ms; the Quack program is 3–15 ms of it (release, `examples/probe_history.rs`, 7 reads, 2026-10-10). The scan, not the program, is the cost. Open: ISS-HIST-SCAN-COST.
+  as a batch whose version is not the next one. Resident: a second log
+  replayed from disk gives identical histories; a log whose records are not
+  at the table's version refuses to commit; a refused replay leaves the
+  resident records unchanged, so a corrupt record can never reach history.
+  Disable runs 2026-10-10, all red: resident-version check off, records
+  installed before replay validates, commit not appending to them.
+- Timing (release, `examples/probe_history.rs`, 100k records, 1,000 versions × 1,000 updates, 1.2M log records, 2026-10-10): history **0.72 ms** median over 101 reads (0.64–1.99), inside P-HIST-1's < 20 ms; replay from Lance 532 ms, once at startup. Superseded: reading history from Lance took 336 ms (#24), 320 ms of it the scan.
 
 ## Board view (D-QRY-3, board half)
 

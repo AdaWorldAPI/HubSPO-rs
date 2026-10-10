@@ -1,6 +1,7 @@
 //! D-STO-5 timing: history of one property of one record, read from a log of
 //! `VERSIONS` batches of `UPDATES` updates each over `ROWS` records, every
-//! batch also writing the probed property. No index on `row`.
+//! batch also writing the probed property. History folds over the resident
+//! records; replay is the one Lance read, timed separately.
 //!
 //! `cargo run --release -p hubspo-store --features lance --example probe_history`
 
@@ -24,7 +25,7 @@ const SPECS: [LaneSpec; 1] = [LaneSpec {
 async fn main() {
     let dir = tempfile::tempdir().expect("tempdir");
     let uri = dir.path().join("probe.lance");
-    let log = Log::new(uri.to_str().expect("utf8"));
+    let mut log = Log::new(uri.to_str().expect("utf8"));
     let mut t = Table::new(OWNER, &SPECS).expect("table");
     let started = Instant::now();
     let seed = Batch {
@@ -52,50 +53,41 @@ async fn main() {
         started.elapsed().as_secs_f64()
     );
     // One fragment per version: the log is never compacted.
-    measure(&log, uri.to_str().expect("utf8"), "fragmented").await;
+    let uri = uri.to_str().expect("utf8");
+
+    // Live clock: history folds over the resident records.
+    let mut hist = Vec::new();
+    let mut n = 0;
+    for _ in 0..101 {
+        let s = Instant::now();
+        n = log
+            .history(&SPECS, PROBE_ROW, Col(0))
+            .expect("history")
+            .len();
+        hist.push(s.elapsed().as_secs_f64() * 1e3);
+    }
+    assert_eq!(n, VERSIONS as usize + 1, "one entry per version");
+    let (h, hmin, hmax) = median(hist);
+    println!(
+        "history (resident, {} records): {n} entries, median {h:.3} ms ({hmin:.3}..{hmax:.3}), 101 reads",
+        log.len()
+    );
+
+    // Recovery clock: replay reads the whole log once from Lance.
+    let mut rep = Vec::new();
+    for _ in 0..5 {
+        let mut cold = Log::new(uri);
+        let s = Instant::now();
+        let back = cold.replay(OWNER, &SPECS).await.expect("replay");
+        rep.push(s.elapsed().as_secs_f64() * 1e3);
+        assert_eq!(back.version(), t.version());
+        assert_eq!(cold.len(), log.len());
+    }
+    let (r, rmin, rmax) = median(rep);
+    println!("replay (Lance, cold): median {r:.1} ms ({rmin:.1}..{rmax:.1}), 5 runs");
 }
 
 fn median(mut ms: Vec<f64>) -> (f64, f64, f64) {
     ms.sort_by(f64::total_cmp);
     (ms[ms.len() / 2], ms[0], ms[ms.len() - 1])
-}
-
-/// Time `history`, and a raw scan of every column with no program, 7 times.
-async fn measure(log: &Log, uri: &str, label: &str) {
-    use futures::TryStreamExt;
-    let mut hist = Vec::new();
-    let mut scan = Vec::new();
-    let mut n = 0;
-    let mut records = 0;
-    for _ in 0..7 {
-        let s = Instant::now();
-        n = log
-            .history(&SPECS, PROBE_ROW, Col(0))
-            .await
-            .expect("history")
-            .len();
-        hist.push(s.elapsed().as_secs_f64() * 1e3);
-        let s = Instant::now();
-        let ds = lance::Dataset::open(uri).await.expect("open");
-        let rows: usize = ds
-            .scan()
-            .try_into_stream()
-            .await
-            .expect("stream")
-            .try_collect::<Vec<_>>()
-            .await
-            .expect("collect")
-            .iter()
-            .map(|b| b.num_rows())
-            .sum();
-        records = rows;
-        scan.push(s.elapsed().as_secs_f64() * 1e3);
-    }
-    assert_eq!(n, VERSIONS as usize + 1, "one entry per version");
-    let (h, hmin, hmax) = median(hist);
-    let (r, rmin, rmax) = median(scan);
-    println!(
-        "{label}: {records} log records; history {n} entries, median {h:.1} ms ({hmin:.1}..{hmax:.1}); \
-         raw scan alone median {r:.1} ms ({rmin:.1}..{rmax:.1}); 7 reads each"
-    );
 }
