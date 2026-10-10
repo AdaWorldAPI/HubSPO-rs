@@ -218,6 +218,7 @@ async fn probe(n: u64) {
 
     let (mut t_step, mut bytes) = (vec![], vec![]);
     let mut touched = 0;
+    let mut split = (0, 0);
     for _ in 0..RUNS {
         let mut mask = base.clone();
         let a0 = ALLOCATED.load(Ordering::Relaxed);
@@ -247,6 +248,7 @@ async fn probe(n: u64) {
             }
         }
 
+        let a_mid = ALLOCATED.load(Ordering::Relaxed);
         let added: Vec<_> = ds
             .fragments()
             .iter()
@@ -268,10 +270,18 @@ async fn probe(n: u64) {
         touched = apply(&mut mask, &batches);
 
         t_step.push(t.elapsed().as_secs_f64() * 1e3);
-        bytes.push((ALLOCATED.load(Ordering::Relaxed) - a0) as f64);
+        let a_end = ALLOCATED.load(Ordering::Relaxed);
+        bytes.push((a_end - a0) as f64);
+        split = ((a_mid - a0) / 1024, (a_end - a_mid) / 1024);
         assert!(mask == oracle, "incremental mask != full recompute");
     }
 
+    eprintln!(
+        "  split N={n}: deletes {} KiB, added scan {} KiB, fragments {}",
+        split.0,
+        split.1,
+        ds.fragments().len()
+    );
     let members: u64 = oracle.iter().map(|w| w.count_ones() as u64).sum();
     println!(
         "{n:>9} | {members:>9} | {flipped:>7} | {touched:>7} | {full_ms:>9.1} | {:>8.2} | {:>9.0}",
