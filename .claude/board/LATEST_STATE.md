@@ -85,6 +85,34 @@
 - Quack became consumable by git with lance-graph #1457
   (`ISS-LG-MASKRISC-PATH-NDARRAY`, resolved).
 
+## Store, resident half (D-STO-1)
+
+- `hubspo-store::table::Table`: one dataset (tenant × object type) as
+  resident lanes (`U32` / `I32`), a live plane (plane 0) and one validity
+  plane per nullable lane. `planes()` borrows them for mask-risc; no read
+  copies a lane.
+- Writes are `Batch`es (inserts, updates, deletes), validated whole and
+  applied as exactly one version or not at all, and only for the table's
+  owner (`MailboxId`, write on behalf). Refused: wrong owner, wrong arity,
+  wrong kind, missing required value, unknown lane, a deleted or absent
+  row, and a row written twice in one batch (update + update of one lane,
+  update + delete, delete + delete; order inside a batch means nothing).
+- `apply()` returns `Applied { version, first_insert, changed }`; `changed`
+  is the plane `list::refresh` takes. Ordinals are never reused: inserts
+  append, deletes clear the live bit and leave the row inert.
+- Tests: 60 random batches match a plain model (every lane and plane, 200+
+  updates, 30+ deletes); 12 refusals leave version, lanes and planes
+  untouched (each refused batch also carries a valid insert, so a partial
+  apply would show); `hubspo-query/tests/store_list.rs` runs catalog →
+  filter → `list::refresh` on the store's own `changed` plane over 50
+  batches and equals a full recomputation.
+  Disable runs 2026-10-10, all red: owner unchecked, deletes missing from
+  `changed` (red in the store and in the list test), delete keeps `live`,
+  a cleared value keeps validity, version frozen, conflict check off,
+  updates to deleted rows allowed, lane kind unchecked.
+- Not yet: persistence (one Lance version per published batch, P-SPARSE-1
+  base + delta) — the next half of D-STO-1.
+
 ## Board view (D-QRY-3, board half)
 
 - `hubspo-query::board::Board`: per (pipeline, stage), record count and
