@@ -111,6 +111,23 @@ async fn scope_mask(ds: &Dataset, mask: &[u64]) -> i64 {
     total
 }
 
+/// The same mask, applied branchlessly: each value is ANDed with the all-ones
+/// or all-zeros word its bit selects, so the loop has no data-dependent
+/// branch (the shape a mask-risc fold kernel has).
+async fn scope_mask_branchless(ds: &Dataset, mask: &[u64]) -> i64 {
+    let mut base = 0usize;
+    let mut total = 0i64;
+    for b in scan(ds, &["amount"]).await {
+        for (i, &v) in i32s(&b, 0).iter().enumerate() {
+            let r = base + i;
+            let keep = -(((mask[r >> 6] >> (r & 63)) & 1) as i64);
+            total += (v as i64) & keep;
+        }
+        base += b.num_rows();
+    }
+    total
+}
+
 fn median(mut v: Vec<f64>) -> f64 {
     v.sort_by(f64::total_cmp);
     v[v.len() / 2]
@@ -146,7 +163,9 @@ async fn main() {
     println!(
         "P-AUTH-1: {rows} rows, {OWNERS} owners, fold = sum(amount); median of {RUNS} runs, ms"
     );
-    println!("scope        | share  | unscoped | owner check (overhead) | scope mask (overhead)");
+    println!(
+        "scope        | share  | unscoped | owner check (overhead) | scope mask (overhead) | branchless mask (overhead)"
+    );
     let scopes: [(&str, Box<dyn Fn(u32) -> bool>); 3] = [
         ("everything", Box::new(|_| true)),
         ("team-owned", Box::new(|o| o < 200)),
@@ -166,7 +185,7 @@ async fn main() {
         }
         let all: i64 = (0..rows).map(|r| amount(r) as i64).sum();
 
-        let (mut t_u, mut t_o, mut t_m) = (vec![], vec![], vec![]);
+        let (mut t_u, mut t_o, mut t_m, mut t_b) = (vec![], vec![], vec![], vec![]);
         for _ in 0..RUNS {
             let t = Instant::now();
             assert_eq!(unscoped(&ds).await, all, "unscoped");
@@ -177,13 +196,21 @@ async fn main() {
             let t = Instant::now();
             assert_eq!(scope_mask(&ds, &mask).await, want, "scope mask");
             t_m.push(t.elapsed().as_secs_f64() * 1e3);
+            let t = Instant::now();
+            assert_eq!(
+                scope_mask_branchless(&ds, &mask).await,
+                want,
+                "branchless mask"
+            );
+            t_b.push(t.elapsed().as_secs_f64() * 1e3);
         }
-        let (u, o, m) = (median(t_u), median(t_o), median(t_m));
+        let (u, o, m, bl) = (median(t_u), median(t_o), median(t_m), median(t_b));
         println!(
-            "{name:<12} | {:>5.1}% | {u:>8.2} | {o:>8.2} ({:>+6.1}%) | {m:>8.2} ({:>+6.1}%)",
+            "{name:<12} | {:>5.1}% | {u:>8.2} | {o:>8.2} ({:>+6.1}%) | {m:>8.2} ({:>+6.1}%) | {bl:>8.2} ({:>+6.1}%)",
             100.0 * kept as f64 / rows as f64,
             100.0 * (o / u - 1.0),
             100.0 * (m / u - 1.0),
+            100.0 * (bl / u - 1.0),
         );
     }
 }
