@@ -2,3 +2,5 @@
 # Consumers of the fleet's git-branch dependencies do not commit a lockfile
 # (lance-graph consumer preflight).
 Cargo.lock
+# Fetched external data (scripts/fetch-hubspot-specs.sh); never committed.
+/.cache
