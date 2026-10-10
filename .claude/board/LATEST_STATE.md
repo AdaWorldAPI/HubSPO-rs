@@ -2,7 +2,7 @@
 
 > What exists right now. Update in the same commit as the change.
 
-**As of 2026-10-10 (Wave 0 merged in #2; harvester merged in #3; mint dossier ratified as v3 by the 5+3 council; D-ONT-4 in PR as OGAR#330 + lance-graph#1438):**
+**As of 2026-10-10 (Wave 0 merged in #2; harvester merged in #3; mint dossier ratified as v3 by the 5+3 council; D-ONT-4 merged as OGAR#330 + lance-graph#1438; H-ADR-7 amended to drop ractor):**
 
 ## Workspace
 
@@ -12,7 +12,8 @@
 - `hubspo-port` depends on `lance-graph-contract` (feature `guid-v3-tail`)
   and `ogar-vocab`, both on `branch = "main"`, and re-exports `HotPlug` and
   `PortSpec`. It holds no codebook and no prefix constant: `HubSpoPort`
-  (`0x000B`) is in OGAR#330, not yet on OGAR `main` (D-ONT-4).
+  (`0x000B`) is on OGAR `main` since #330 (D-ONT-4); the port crate does
+  not read it yet (D-ONT-5).
 - `hubspo-guards` enforces Gate G0 as tests (rules in its `lib.rs` header).
   9 unit tests (each rule can fire and can stay silent) + 1 workspace scan.
   All six disable runs measured red on 2026-10-10:
@@ -25,6 +26,19 @@
   | `hubspo-ui` removed from `ZONES` | `the_workspace_breaks_no_guard` |
   | `has_string_id` forced to `false` | `string_ids_fire` |
   | stalwart-source check removed | `forbidden_dependency_fires_in_every_spelling` |
+
+  Added 2026-10-10: `ractor*`, `lance-graph-supervisor` and any `surreal*`
+  dependency feature are forbidden. On its first run the rule found the root
+  manifest still declaring `lance-graph-supervisor` (removed). Five more
+  disable runs, all red (`cargo test -p hubspo-guards --lib`):
+
+  | disable | failing test |
+  |---|---|
+  | `ractor` removed from the list | `forbidden_dependency_fires_in_every_spelling` |
+  | `lance-graph-supervisor` removed | `forbidden_dependency_fires_in_every_spelling` |
+  | `ractor` matched exactly, not as prefix | `forbidden_dependency_fires_in_every_spelling` (`ractor_cluster`) |
+  | surreal-feature check never fires | `forbidden_dependency_fires_in_every_spelling` |
+  | surreal-feature check fires on any `surreal` text | `allowed_dependencies_stay_silent` |
 
 - CI: `.github/workflows/ci.yml` runs fmt, clippy (`--no-deps -D warnings`)
   and `cargo test --workspace` with debug info off.
