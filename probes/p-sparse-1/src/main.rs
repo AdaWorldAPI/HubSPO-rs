@@ -39,6 +39,7 @@ use arrow::array::{Array, Int32Array, RecordBatch, RecordBatchIterator, UInt8Arr
 use arrow::datatypes::{DataType, Field, Schema};
 use futures::TryStreamExt;
 use lance::Dataset;
+use lance::dataset::optimize::{CompactionOptions, compact_files};
 use lance::dataset::{ProjectionRequest, WriteMode, WriteParams};
 use lance::index::DatasetIndexExt;
 use lance_index::IndexType;
@@ -260,11 +261,53 @@ async fn hist(n: u64, versions: u64, batch: usize) {
         t_idx.push(t.elapsed().as_secs_f64() * 1e3);
     }
 
+    let frags = delta.fragments().len();
+
+    // Compaction: the delta is append-only with no deletions, so merging its
+    // fragments loses nothing; re-index over the compacted files.
+    let t = Instant::now();
+    compact_files(&mut delta, CompactionOptions::default(), None)
+        .await
+        .expect("compact");
+    delta
+        .create_index(
+            &["row"],
+            IndexType::BTree,
+            None,
+            &ScalarIndexParams::default(),
+            true,
+        )
+        .await
+        .expect("btree index after compaction");
+    let compact_s = t.elapsed().as_secs_f64();
+    let (mut t_cscan, mut t_cidx) = (vec![], vec![]);
+    for _ in 0..RUNS {
+        let t = Instant::now();
+        assert_eq!(
+            history(&base, &delta, target).await,
+            expected,
+            "compacted indexed history"
+        );
+        t_cidx.push(t.elapsed().as_secs_f64() * 1e3);
+    }
+    delta.drop_index("row_idx").await.expect("drop index");
+    for _ in 0..RUNS {
+        let t = Instant::now();
+        assert_eq!(
+            history(&base, &delta, target).await,
+            expected,
+            "compacted scan history"
+        );
+        t_cscan.push(t.elapsed().as_secs_f64() * 1e3);
+    }
+
     println!(
-        "hist | N {n} | versions {versions} x {batch} | delta records {records} | fragments {} | write {build_s:.1} s | scan {:.2} ms | btree build {index_s:.2} s | indexed {:.2} ms | values {}",
-        delta.fragments().len(),
+        "hist | N {n} | versions {versions} x {batch} | delta records {records} | write {build_s:.1} s | {frags} fragments: scan {:.2} ms, btree build {index_s:.2} s, indexed {:.2} ms | compact+index {compact_s:.2} s, {} fragments: scan {:.2} ms, indexed {:.2} ms | values {}",
         median(t_scan),
         median(t_idx),
+        delta.fragments().len(),
+        median(t_cscan),
+        median(t_cidx),
         expected.len(),
     );
 }
