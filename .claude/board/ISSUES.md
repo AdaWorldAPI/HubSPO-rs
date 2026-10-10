@@ -3,6 +3,25 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-DIRSIM-HUBSPO-GAPS — dir-sim lacks what tickets, mail and documents need
+
+- **Status:** OPEN (upstream asks; not built here — STOP rule)
+- **Where:** lance-graph `crates/lance-graph-dir-sim`, OGAR `crates/ogar-dir-sim` (re-checked at lance-graph `a75bcc42`, OGAR `173de21`).
+- **What:** found by the comms API read (`.claude/knowledge/comms-api-surface.md` §2):
+  1. no persistence: `VersionStore` is in memory; `ad::project` (lance-graph #1452) writes LDIF for export and diffing only, not as a load format;
+  2. no `ActorSource` over a `View` in either tree (only spear's `DirectoryActors`), so directory groups do not reach RBAC roles;
+  3. no mailbox delegation (send-as, send-on-behalf, FullAccess);
+  4. nested groups are held by identity and never expanded (spear's `mailbox_members` does the closure; HubSPO-rs reuses it rather than writing a second one);
+  5. no queue or round-robin primitive (ticket routing, D-FLOW-5, stays here);
+  6. no document ACL model.
+- **Ask order:** 2 then 1 (they unblock D-IAM-2 and stalwart option (b)); 3 and 6 only when D-MAIL-5 / D-SVC-1 reach them.
+
+## ISS-SPEAR-THREAD-AND-STALWART-DOC — spear thread id is null; a spear doc contradicts H-ADR-8
+
+- **Status:** OPEN (spear follow-up)
+- **Where:** spear `src/mail/ingest.rs:192` (`thread_id` written as `FixedSizeBinary::new_null`); spear `docs/STALWART_INTEGRATION.md` (spear as a storage backend linked into stalwart).
+- **What:** D-MAIL-4 needs a thread key; the contract seam is `lance_graph_contract::mail::ThreadLinker` (no impl in tree), and stalwart's `message-ingest.ham` webhook carries no ThreadId, so the key must be computed on our side. The stalwart doc conflicts with H-ADR-8 (stalwart stays a separate AGPL process) and should be marked superseded in spear.
+
 ## ISS-LG-REPORT-OWNED-LANES — the report seam copies each lane once
 
 - **Status:** OPEN (upstream ask; not built here — STOP rule)
@@ -17,7 +36,7 @@
 
 ## ISS-OGAR-CRM-PORT — HubSpoPort and the CRM concept domain do not exist
 
-- **Status:** OPEN (blocks D-ONT-5 and every classid in Wave 1)
+- **Status:** RESOLVED 2026-10-10 by OGAR #330 (`c6a7797`: `ConceptDomain::Crm`, 15 concepts `0x0501`–`0x050F`, `HubSpoPort` `0x000B`) and lance-graph #1438 (mirror). `crm_actions` is deferred by design in OGAR (`docs/DISCOVERY-MAP.md` D-CRM-DOMAIN: no capability rows until HubSPO-rs implements them), so it is a HubSPO-rs follow-up, not an upstream ask.
 - **Where:** OGAR `crates/ogar-vocab` (ports, `class_ids`, `ConceptDomain`,
   `capability_registry::domain_tables`), lance-graph `ogar_codebook` mirror.
 - **What:** approved 2026-10-10 (OD-1, OD-2): port `0x000B`, domain
