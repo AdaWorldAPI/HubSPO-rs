@@ -52,7 +52,34 @@ async fn main() {
         ROWS + VERSIONS * UPDATES,
         started.elapsed().as_secs_f64()
     );
-    let mut times = Vec::new();
+    measure(&log, uri.to_str().expect("utf8"), "fragmented").await;
+    // The same log after compacting its fragments. `history` reads the
+    // `version` column, not the Lance version, so it stays correct; `commit`
+    // would refuse the compacted log (its Lance version moved).
+    let mut ds = lance::Dataset::open(uri.to_str().expect("utf8"))
+        .await
+        .expect("open");
+    let before = ds.get_fragments().len();
+    lance::dataset::optimize::compact_files(&mut ds, Default::default(), None)
+        .await
+        .expect("compact");
+    println!(
+        "compacted {before} fragments into {}",
+        ds.get_fragments().len()
+    );
+    measure(&log, uri.to_str().expect("utf8"), "compacted").await;
+}
+
+fn median(mut ms: Vec<f64>) -> (f64, f64, f64) {
+    ms.sort_by(f64::total_cmp);
+    (ms[ms.len() / 2], ms[0], ms[ms.len() - 1])
+}
+
+/// Time `history`, and a raw scan of every column with no program, 7 times.
+async fn measure(log: &Log, uri: &str, label: &str) {
+    use futures::TryStreamExt;
+    let mut hist = Vec::new();
+    let mut scan = Vec::new();
     let mut n = 0;
     for _ in 0..7 {
         let s = Instant::now();
@@ -61,12 +88,28 @@ async fn main() {
             .await
             .expect("history")
             .len();
-        times.push(s.elapsed().as_secs_f64() * 1e3);
+        hist.push(s.elapsed().as_secs_f64() * 1e3);
+        let s = Instant::now();
+        let ds = lance::Dataset::open(uri).await.expect("open");
+        let rows: usize = ds
+            .scan()
+            .try_into_stream()
+            .await
+            .expect("stream")
+            .try_collect::<Vec<_>>()
+            .await
+            .expect("collect")
+            .iter()
+            .map(|b| b.num_rows())
+            .sum();
+        assert_eq!(rows, (ROWS + VERSIONS * UPDATES) as usize);
+        scan.push(s.elapsed().as_secs_f64() * 1e3);
     }
-    times.sort_by(f64::total_cmp);
     assert_eq!(n, VERSIONS as usize + 1, "one entry per version");
+    let (h, hmin, hmax) = median(hist);
+    let (r, rmin, rmax) = median(scan);
     println!(
-        "history: {n} entries, median {:.1} ms (min {:.1}, max {:.1}) over 7 reads",
-        times[3], times[0], times[6]
+        "{label}: history {n} entries, median {h:.1} ms ({hmin:.1}..{hmax:.1}); \
+         raw scan alone median {r:.1} ms ({rmin:.1}..{rmax:.1}); 7 reads each"
     );
 }
