@@ -39,7 +39,7 @@
 | D-STO-2 | KV value store for variable-length properties; zero-copy lens reads | M | Queued |  |
 | D-STO-3 | Edge lanes + association labels (H-ADR-4); cardinality invariants as Quack `GroupReduce` | L | Queued |  |
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | Queued | P-TEN-1 passed 2026-10-10 (7.8 ms p99 at 10k tenants, local disk) |
-| D-STO-5 | Property history via version log + P-HIST-1 probe | M | Blocked | P-HIST-1 failed 2026-10-10 (best 46 ms vs 20 ms); next: reader reuse vs value-carrying index |
+| D-STO-5 | Property history via version log + P-HIST-1 probe | M | Queued | P-HIST-1 failed on in-place updates (46 ms); P-SPARSE-1 passes with the split-tunnel sparse delta: 16.9 ms indexed, 3.3–5.9 ms compacted |
 | D-STO-6 | Importer (value oracle, part 1): sandbox portal → crm-sim plan → commit; counts compared per object type | L | Queued |  |
 
 ## Wave 3 — Query, lists, views, reports
@@ -47,7 +47,7 @@
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
 | D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Queued |  |
-| D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M (budget 10 ms); alloc ∝ fragments touched |
+| D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M; alloc ∝ fragments touched. P-SPARSE-1: 1.93 ms, 257 KiB flat at 10M |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | Queued |  |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
 | D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued |  |
