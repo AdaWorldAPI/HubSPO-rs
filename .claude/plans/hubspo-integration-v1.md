@@ -718,6 +718,13 @@ produced to a topic. Zone 3 only (`hubspo-server`, `hubspo-compat`).
    between two versions must be derivable from the datasets themselves.
    Probe P-LOG-1 measures whether Lance's row-version tracking gives that
    directly; the fallback is diffing the touched fragments.
+   *Measured 2026-10-10 (P-LOG-1, board LATEST_STATE):* derivable from the
+   datasets, yes. Lance's `delta()` inserted/updated readers scan the whole
+   table (≈ 55–60 ns per row, 844–913 ms at 16M rows); only deleted row ids
+   are flat. The fragment diff is flat (1.4–1.5 ms at 100k–16M) and exact,
+   so D-LOG-2 replays version ranges by fragment diff, never by `delta()`.
+   Open: a compaction version rewrites unchanged rows into new fragments;
+   the diff must skip `Rewrite` transactions (not yet probed).
 5. **Lane types are `i32`, `u32`, `u64`.** Money is two `i32` lanes (whole
    units, minor units), summed separately and combined; timestamps are
    `i32` seconds against a fixed epoch or a day + second pair; strings are
@@ -1040,7 +1047,7 @@ with identical responses modulo ids/timestamps.
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan |
-| P-LOG-1 | changed rows and fields between two Lance versions, from the datasets alone | derivable without the audit record; cost proportional to changed rows, not dataset size |
+| P-LOG-1 | changed rows and fields between two Lance versions, from the datasets alone | derivable without the audit record; cost proportional to changed rows, not dataset size — **passed by fragment diff (1.4 ms flat to 16M); `delta()` fails (scan)**, 2026-10-10 |
 
 Thresholds are policy pins; each is replaced by a measured value with
 its command in `.claude/board/` when run. A probe that fails stops the

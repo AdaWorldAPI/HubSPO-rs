@@ -63,6 +63,29 @@
 - Not covered yet: per-portal property, pipeline and label definitions
   (needs `ISS-ORACLE-PORTAL`).
 
+## Probe P-LOG-1 (plan H-ADR-15 condition 4)
+
+`probes/p-log-1` (standalone, needs `protoc`). Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-log-1/Cargo.toml && target/probes/release/p-log-1 100000,1000000,4000000,16000000`.
+Fixed change set at every N: 500 updates, 250 inserts, 250 deletes;
+median of 5 runs, ms; every arm asserts the exact counts. Measured 2026-10-10:
+
+| N | frags | `delta` inserted | `delta` updated | `delta` deleted | field diff | fragment diff |
+|---|---|---|---|---|---|---|
+| 100k | 3 | 8.86 | 8.75 | 1.09 | 1.91 | 1.38 |
+| 1M | 3 | 63.86 | 61.74 | 1.12 | 9.06 | 1.51 |
+| 4M | 6 | 231.60 | 228.16 | 1.26 | 22.39 | 1.39 |
+| 16M | 18 | 843.49 | 912.89 | 1.80 | 39.20 | 1.38 |
+
+Verdict: changes are derivable from the datasets alone. `delta()`'s
+inserted/updated readers are table scans and fail the cost criterion; the
+fragment diff (scan fragments added since v0, row id below v0's
+`next_row_id` = update; diff shared fragments' deletion vectors) is flat and
+exact, and is what D-LOG-2 uses. The field diff (`take_rows` at v0) grows
+with fragment count, not N (39 ms at 16M). Disable run: scanning every
+fragment instead of only the added ones → assertion red (99,750 "updates").
+Not probed: compaction (`Rewrite`) versions between the two offsets.
+
 ## Mint dossier (D-ONT-3)
 
 `.claude/plans/hubspo-concept-mint-dossier-v1.md`: 15 MINT, 10 ALIAS rows,
