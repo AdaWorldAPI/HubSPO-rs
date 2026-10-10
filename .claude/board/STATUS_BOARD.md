@@ -46,7 +46,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Queued |  |
+| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Queued | P-QDB-1: catalog + codebook `Binder` and nine bound programs proven against an oracle |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M; alloc ∝ fragments touched. P-SPARSE-1: 1.93 ms, 257 KiB flat at 10M |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | Queued |  |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
@@ -83,7 +83,7 @@
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
 | D-MAIL-1 | stalwart deployment profile (separate service, AGPL stays there); stalwart keeps its own directory; contacts join to mailboxes through spear's placement (OD-12) | M | Queued | re-scoped 2026-10-10 (OD-12) |
-| D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | Queued |  |
+| D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | Queued | wire surface mapped: `.claude/knowledge/comms-api-surface.md` §3 |
 | D-MAIL-3 | One-to-one email send from a record via JMAP `EmailSubmission`; `send_receipts` row | M | Queued |  |
 | D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`, no impl in tree) | L | Queued |  |
 | D-MAIL-5 | Shared inbox / conversations: new spear roles (team inbox member, inbox admin) + ownership routing | L | Queued |  |

@@ -22,7 +22,8 @@
 //! - `delivery`  message→message, outcome, day
 //! - `document`  ticket→ticket, folder, size_kb
 //!
-//! Usage: `p-qdb-1 <tickets> [disable]`, disable ∈ {none, code, via, live}.
+//! Usage: `p-qdb-1 <tickets> [disable] [clustered]`, disable ∈ {none, code,
+//! via, live}; `clustered` stores deliveries grouped by message.
 //! A disable perturbs one step and must make an oracle assert fail.
 
 use std::collections::HashMap;
@@ -34,16 +35,16 @@ use arrow::datatypes::{DataType, Field, Schema};
 use futures::TryStreamExt;
 use lance::Dataset;
 use lance_graph_mask_risc::{
-    execute_into, materialize_rows, words_for, Foreign, LaneRef, Out, Planes, Program, Scratch,
-    Value,
+    Foreign, LaneRef, Out, Planes, Program, Scratch, Value, execute_into, materialize_rows,
+    words_for,
 };
 use lance_graph_quack::bind::{
-    create_table, table, BindError, Binder, BoundField, FieldKind, RegisterError, Registrar,
-    TableId,
+    BindError, Binder, BoundField, FieldKind, RegisterError, Registrar, TableId, create_table,
+    table,
 };
 use lance_graph_quack::{
-    lower, normalize_group_sink, Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, Mask,
-    Query,
+    Agg, Cmp, Col, Filter, ForeignLane, GroupAddr, GroupAgg, Mask, Query, lower,
+    normalize_group_sink,
 };
 
 // ---------------------------------------------------------------- data ----
@@ -108,52 +109,103 @@ const FOLDER: &[&str] = &["contracts", "invoices", "screenshots", "other"];
 const ACTIVE: &[&str] = &["active", "disabled"];
 const TEAMS: u32 = 50;
 
-fn generate(tickets: usize, users: usize) -> Vec<TableData> {
+fn generate(tickets: usize, users: usize, clustered: bool) -> Vec<TableData> {
     let mut r = Rng(0x5EED);
     let u = users as u32;
     let user = TableData {
         name: "user",
         cols: vec![
-            ("team", ColData::U32((0..u).map(|_| r.below(TEAMS)).collect())),
-            ("active", ColData::U32((0..u).map(|_| r.weighted(&[95, 5])).collect())),
+            (
+                "team",
+                ColData::U32((0..u).map(|_| r.below(TEAMS)).collect()),
+            ),
+            (
+                "active",
+                ColData::U32((0..u).map(|_| r.weighted(&[95, 5])).collect()),
+            ),
         ],
     };
     let t = tickets as u32;
     let ticket = TableData {
         name: "ticket",
         cols: vec![
-            ("status", ColData::U32((0..t).map(|_| r.weighted(&[40, 15, 10, 35])).collect())),
-            ("pipeline", ColData::U32((0..t).map(|_| r.weighted(&[60, 25, 15])).collect())),
+            (
+                "status",
+                ColData::U32((0..t).map(|_| r.weighted(&[40, 15, 10, 35])).collect()),
+            ),
+            (
+                "pipeline",
+                ColData::U32((0..t).map(|_| r.weighted(&[60, 25, 15])).collect()),
+            ),
             ("owner", ColData::U32((0..t).map(|_| r.below(u)).collect())),
-            ("priority", ColData::U32((0..t).map(|_| r.weighted(&[50, 35, 15])).collect())),
-            ("created_day", ColData::I32((0..t).map(|_| r.below(365) as i32).collect())),
+            (
+                "priority",
+                ColData::U32((0..t).map(|_| r.weighted(&[50, 35, 15])).collect()),
+            ),
+            (
+                "created_day",
+                ColData::I32((0..t).map(|_| r.below(365) as i32).collect()),
+            ),
         ],
     };
     let m = 4 * t;
     let message = TableData {
         name: "message",
         cols: vec![
-            ("mailbox", ColData::U32((0..m).map(|_| r.below(u)).collect())),
+            (
+                "mailbox",
+                ColData::U32((0..m).map(|_| r.below(u)).collect()),
+            ),
             ("ticket", ColData::U32((0..m).map(|_| r.below(t)).collect())),
-            ("seen", ColData::U32((0..m).map(|_| r.weighted(&[30, 70])).collect())),
-            ("day", ColData::I32((0..m).map(|_| r.below(365) as i32).collect())),
+            (
+                "seen",
+                ColData::U32((0..m).map(|_| r.weighted(&[30, 70])).collect()),
+            ),
+            (
+                "day",
+                ColData::I32((0..m).map(|_| r.below(365) as i32).collect()),
+            ),
         ],
     };
     let d = 4 * t;
     let delivery = TableData {
         name: "delivery",
         cols: vec![
-            ("message", ColData::U32((0..d).map(|_| r.below(m)).collect())),
-            ("outcome", ColData::U32((0..d).map(|_| r.weighted(&[90, 4, 5, 1])).collect())),
-            ("day", ColData::I32((0..d).map(|_| r.below(365) as i32).collect())),
+            (
+                "message",
+                ColData::U32({
+                    let mut v: Vec<u32> = (0..d).map(|_| r.below(m)).collect();
+                    // Deliveries are written as messages are sent, so in storage
+                    // they arrive grouped by message. `clustered` models that;
+                    // the default (random) is the worst case for an fk gather.
+                    if clustered {
+                        v.sort_unstable();
+                    }
+                    v
+                }),
+            ),
+            (
+                "outcome",
+                ColData::U32((0..d).map(|_| r.weighted(&[90, 4, 5, 1])).collect()),
+            ),
+            (
+                "day",
+                ColData::I32((0..d).map(|_| r.below(365) as i32).collect()),
+            ),
         ],
     };
     let document = TableData {
         name: "document",
         cols: vec![
             ("ticket", ColData::U32((0..t).map(|_| r.below(t)).collect())),
-            ("folder", ColData::U32((0..t).map(|_| r.weighted(&[20, 30, 30, 20])).collect())),
-            ("size_kb", ColData::I32((0..t).map(|_| 1 + r.below(10_000) as i32).collect())),
+            (
+                "folder",
+                ColData::U32((0..t).map(|_| r.weighted(&[20, 30, 30, 20])).collect()),
+            ),
+            (
+                "size_kb",
+                ColData::I32((0..t).map(|_| 1 + r.below(10_000) as i32).collect()),
+            ),
         ],
     };
     vec![user, ticket, message, delivery, document]
@@ -192,7 +244,9 @@ async fn write_table(uri: &str, t: &TableData) {
                 ColData::I32(v) => Arc::new(Int32Array::from(v[s..e].to_vec())) as ArrayRef,
             })
             .collect();
-        batches.push(Ok(RecordBatch::try_new(schema.clone(), cols).expect("batch")));
+        batches.push(Ok(
+            RecordBatch::try_new(schema.clone(), cols).expect("batch")
+        ));
         s = e;
     }
     Dataset::write(RecordBatchIterator::new(batches, schema), uri, None)
@@ -275,7 +329,10 @@ impl Registrar for Catalog {
             return Err(RegisterError::Exists(name.into()));
         }
         if width % 4 != 0 {
-            return Err(RegisterError::Refused { table: name.into(), width });
+            return Err(RegisterError::Refused {
+                table: name.into(),
+                width,
+            });
         }
         self.tables.push(TableMeta {
             name: name.into(),
@@ -291,12 +348,20 @@ impl Catalog {
         let meta = &mut self.tables[t.0 as usize];
         meta.fields.push((
             field.into(),
-            BoundField { col: Col(col), kind, validity: None },
+            BoundField {
+                col: Col(col),
+                kind,
+                validity: None,
+            },
         ));
         if !codebook.is_empty() {
             meta.codes.insert(
                 col,
-                codebook.iter().enumerate().map(|(i, s)| (s.clone(), i as u32)).collect(),
+                codebook
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| (s.clone(), i as u32))
+                    .collect(),
             );
         }
     }
@@ -304,7 +369,10 @@ impl Catalog {
 
 impl Binder for Catalog {
     fn table(&self, name: &str) -> Option<TableId> {
-        self.tables.iter().position(|t| t.name == name).map(|i| TableId(i as u32))
+        self.tables
+            .iter()
+            .position(|t| t.name == name)
+            .map(|i| TableId(i as u32))
     }
     /// Each table's resident `masks[0]` is its live plane.
     fn live(&self, _table: TableId) -> Mask {
@@ -315,7 +383,12 @@ impl Binder for Catalog {
         meta.fields.iter().find(|f| f.0 == name).map(|f| f.1)
     }
     fn code(&self, table: TableId, field: Col, literal: &str) -> Option<u32> {
-        self.tables.get(table.0 as usize)?.codes.get(&field.0)?.get(literal).copied()
+        self.tables
+            .get(table.0 as usize)?
+            .codes
+            .get(&field.0)?
+            .get(literal)
+            .copied()
     }
 }
 
@@ -324,7 +397,9 @@ fn names(list: &[&str]) -> Vec<String> {
 }
 
 fn addresses(users: usize) -> Vec<String> {
-    (0..users).map(|i| format!("user{i}@example.test")).collect()
+    (0..users)
+        .map(|i| format!("user{i}@example.test"))
+        .collect()
 }
 
 fn build_catalog(users: usize) -> Catalog {
@@ -332,10 +407,20 @@ fn build_catalog(users: usize) -> Catalog {
     let mut c = Catalog::default();
     let none: Vec<String> = Vec::new();
     let reg = |c: &mut Catalog, name: &str, cols: u32| {
-        create_table(name).width(4 * cols).register(c).expect("register").id
+        create_table(name)
+            .width(4 * cols)
+            .register(c)
+            .expect("register")
+            .id
     };
     let t = reg(&mut c, "user", 2);
-    c.declare(t, "team", 0, Code, &(0..TEAMS).map(|i| format!("team-{i}")).collect::<Vec<_>>());
+    c.declare(
+        t,
+        "team",
+        0,
+        Code,
+        &(0..TEAMS).map(|i| format!("team-{i}")).collect::<Vec<_>>(),
+    );
     c.declare(t, "active", 1, Code, &names(ACTIVE));
     let t = reg(&mut c, "ticket", 5);
     c.declare(t, "status", 0, Code, &names(STATUS));
@@ -403,7 +488,11 @@ fn count(v: &Value) -> usize {
 }
 
 fn planes<'a>(r: &'a Resident, masks: &'a [&'a [u64]], lanes: &'a [LaneRef<'a>]) -> Planes<'a> {
-    Planes { n_rows: r.n, masks, lanes }
+    Planes {
+        n_rows: r.n,
+        masks,
+        lanes,
+    }
 }
 
 fn report(id: &str, what: &str, ms: f64, oracle_ms: f64, answer: impl std::fmt::Display) {
@@ -413,14 +502,18 @@ fn report(id: &str, what: &str, ms: f64, oracle_ms: f64, answer: impl std::fmt::
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let tickets: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1_000_000);
+    let tickets: usize = args
+        .get(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1_000_000);
     let disable = args.get(2).cloned().unwrap_or_else(|| "none".into());
     let users = 20_000;
     let reps = 15;
 
     // -- generate, persist, reload ------------------------------------
     let t0 = Instant::now();
-    let data = generate(tickets, users);
+    let clustered = args.get(3).is_some_and(|a| a == "clustered");
+    let data = generate(tickets, users, clustered);
     let gen_s = t0.elapsed().as_secs_f64();
     let dir = tempfile::tempdir().expect("tempdir");
     let t0 = Instant::now();
@@ -431,15 +524,21 @@ async fn main() {
     let t0 = Instant::now();
     let mut res = HashMap::new();
     for t in &data {
-        res.insert(t.name, load_table(&format!("{}/{}.lance", dir.path().display(), t.name)).await);
+        res.insert(
+            t.name,
+            load_table(&format!("{}/{}.lance", dir.path().display(), t.name)).await,
+        );
     }
     let load_s = t0.elapsed().as_secs_f64();
     let d: HashMap<&str, &TableData> = data.iter().map(|t| (t.name, t)).collect();
     for t in &data {
         assert_eq!(res[t.name].n, t.rows(), "{} reloaded row count", t.name);
     }
-    let rows: Vec<String> = data.iter().map(|t| format!("{} {}", t.name, t.rows())).collect();
-    println!("P-QDB-1  tickets={tickets} users={users} disable={disable}");
+    let rows: Vec<String> = data
+        .iter()
+        .map(|t| format!("{} {}", t.name, t.rows()))
+        .collect();
+    println!("P-QDB-1  tickets={tickets} users={users} disable={disable} clustered={clustered}");
     println!("rows: {}", rows.join(", "));
     println!("generate {gen_s:.2} s · Lance write {write_s:.2} s · load to resident {load_s:.2} s");
 
@@ -485,25 +584,46 @@ async fn main() {
     let team = d["user"].u32("team");
 
     let t_bind = Instant::now();
-    let q1 = table("ticket").where_eq("status", "open").where_eq("pipeline", "support").count();
+    let q1 = table("ticket")
+        .where_eq("status", "open")
+        .where_eq("pipeline", "support")
+        .count();
     let q1 = q1.bind(&cat).expect("bind q1");
     let p1 = lower(&q1).expect("lower q1");
     let bind_ms = t_bind.elapsed().as_secs_f64() * 1e3;
     let lo = Instant::now();
-    let o1 = (0..td.rows()).filter(|&i| status[i] == 0 && pipeline[i] == 0).count();
+    let o1 = (0..td.rows())
+        .filter(|&i| status[i] == 0 && pipeline[i] == 0)
+        .count();
     let o1_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (v, _, ms) = run(&p1, &tp, &Foreign::NONE, reps, || OutBuf::None);
-    report("Q1", "tickets: open in pipeline 'support' (bound text)", ms, o1_ms, count(&v));
+    report(
+        "Q1",
+        "tickets: open in pipeline 'support' (bound text)",
+        ms,
+        o1_ms,
+        count(&v),
+    );
     assert_eq!(count(&v), o1, "Q1 open support tickets");
     println!("     bind + lower once: {bind_ms:.3} ms");
 
     // Q2: routing — the owner's team, read through the fk into `user`.
     let team7 = 7u32;
-    let via_lane = if disable == "via" { user.lane(1) } else { user.lane(0) };
+    let via_lane = if disable == "via" {
+        user.lane(1)
+    } else {
+        user.lane(0)
+    };
     let user_lanes = [via_lane];
-    let fgn = Foreign { planes: &[], lanes: &user_lanes };
+    let fgn = Foreign {
+        planes: &[],
+        lanes: &user_lanes,
+    };
     let q2 = Query {
-        filter: Filter::and([q1.filter.clone(), Filter::eq_u32_via(Col(2), ForeignLane(0), team7)]),
+        filter: Filter::and([
+            q1.filter.clone(),
+            Filter::eq_u32_via(Col(2), ForeignLane(0), team7),
+        ]),
         agg: Agg::Count,
     };
     let p2 = lower(&q2).expect("lower q2");
@@ -513,13 +633,22 @@ async fn main() {
         .count();
     let o2_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (v, _, ms) = run(&p2, &tp, &fgn, reps, || OutBuf::None);
-    report("Q2", "tickets: … AND owner.team = team-7 (fk join, fused)", ms, o2_ms, count(&v));
+    report(
+        "Q2",
+        "tickets: … AND owner.team = team-7 (fk join, fused)",
+        ms,
+        o2_ms,
+        count(&v),
+    );
     assert_eq!(count(&v), o2, "Q2 team routing");
 
     // Q3: tickets GROUP BY status.
     let q3 = Query {
         filter: Filter::plane(Mask(0)),
-        agg: Agg::GroupReduce { key: GroupAddr::Local(Col(0)), agg: GroupAgg::Count },
+        agg: Agg::GroupReduce {
+            key: GroupAddr::Local(Col(0)),
+            agg: GroupAgg::Count,
+        },
     };
     let p3 = lower(&q3).expect("lower q3");
     let lo = Instant::now();
@@ -528,10 +657,18 @@ async fn main() {
         o3[s as usize] += 1;
     }
     let o3_ms = lo.elapsed().as_secs_f64() * 1e3;
-    let (v, buf, ms) = run(&p3, &tp, &Foreign::NONE, reps, || OutBuf::I64(vec![0; STATUS.len()]));
+    let (v, buf, ms) = run(&p3, &tp, &Foreign::NONE, reps, || {
+        OutBuf::I64(vec![0; STATUS.len()])
+    });
     assert_eq!(v, Value::GroupReduced);
     let OutBuf::I64(g3) = buf else { unreachable!() };
-    report("Q3", "tickets: GROUP BY status COUNT", ms, o3_ms, format!("{g3:?}"));
+    report(
+        "Q3",
+        "tickets: GROUP BY status COUNT",
+        ms,
+        o3_ms,
+        format!("{g3:?}"),
+    );
     assert_eq!(g3, o3, "Q3 status histogram");
 
     // -- mail ----------------------------------------------------------
@@ -542,28 +679,55 @@ async fn main() {
     let md = d["message"];
     let (mailbox, m_ticket, seen) = (md.u32("mailbox"), md.u32("ticket"), md.u32("seen"));
     let who = "user42@example.test";
-    let q4 = table("message").where_eq("mailbox", who).where_eq("seen", "unseen").count();
+    let q4 = table("message")
+        .where_eq("mailbox", who)
+        .where_eq("seen", "unseen")
+        .count();
     let p4 = lower(&q4.bind(&cat).expect("bind q4")).expect("lower q4");
     let lo = Instant::now();
-    let o4 = (0..md.rows()).filter(|&i| mailbox[i] == 42 && seen[i] == 0).count();
+    let o4 = (0..md.rows())
+        .filter(|&i| mailbox[i] == 42 && seen[i] == 0)
+        .count();
     let o4_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (v, _, ms) = run(&p4, &mp, &Foreign::NONE, reps, || OutBuf::None);
-    report("Q4", "mail: unseen in mailbox user42@example.test", ms, o4_ms, count(&v));
+    report(
+        "Q4",
+        "mail: unseen in mailbox user42@example.test",
+        ms,
+        o4_ms,
+        count(&v),
+    );
     assert_eq!(count(&v), o4, "Q4 unseen inbox");
 
     // Q5: the messages of one ticket's thread — rows, materialised by the
     // caller (the one named materialiser).
     let thread = 4242u32 % tickets as u32;
-    let q5 = Query { filter: Filter::and([Filter::plane(Mask(0)), Filter::cmp(Col(1), Cmp::EqU32(thread))]), agg: Agg::Rows };
+    let q5 = Query {
+        filter: Filter::and([
+            Filter::plane(Mask(0)),
+            Filter::cmp(Col(1), Cmp::EqU32(thread)),
+        ]),
+        agg: Agg::Rows,
+    };
     let p5 = lower(&q5).expect("lower q5");
     let lo = Instant::now();
     let o5: Vec<usize> = (0..md.rows()).filter(|&i| m_ticket[i] == thread).collect();
     let o5_ms = lo.elapsed().as_secs_f64() * 1e3;
     let words = words_for(message.n);
-    let (_, buf, ms) = run(&p5, &mp, &Foreign::NONE, reps, || OutBuf::Mask(vec![0; words]));
-    let OutBuf::Mask(m5) = buf else { unreachable!() };
+    let (_, buf, ms) = run(&p5, &mp, &Foreign::NONE, reps, || {
+        OutBuf::Mask(vec![0; words])
+    });
+    let OutBuf::Mask(m5) = buf else {
+        unreachable!()
+    };
     let r5 = materialize_rows(&m5, message.n);
-    report("Q5", "mail: thread of one ticket (rows)", ms, o5_ms, format!("{} rows", r5.len()));
+    report(
+        "Q5",
+        "mail: thread of one ticket (rows)",
+        ms,
+        o5_ms,
+        format!("{} rows", r5.len()),
+    );
     assert_eq!(r5, o5, "Q5 thread rows");
 
     // -- delivery ------------------------------------------------------
@@ -576,7 +740,10 @@ async fn main() {
 
     let q6 = Query {
         filter: Filter::plane(Mask(0)),
-        agg: Agg::GroupReduce { key: GroupAddr::Local(Col(1)), agg: GroupAgg::Count },
+        agg: Agg::GroupReduce {
+            key: GroupAddr::Local(Col(1)),
+            agg: GroupAgg::Count,
+        },
     };
     let p6 = lower(&q6).expect("lower q6");
     let lo = Instant::now();
@@ -585,16 +752,27 @@ async fn main() {
         o6[o as usize] += 1;
     }
     let o6_ms = lo.elapsed().as_secs_f64() * 1e3;
-    let (_, buf, ms) = run(&p6, &dp, &Foreign::NONE, reps, || OutBuf::I64(vec![0; OUTCOME.len()]));
+    let (_, buf, ms) = run(&p6, &dp, &Foreign::NONE, reps, || {
+        OutBuf::I64(vec![0; OUTCOME.len()])
+    });
     let OutBuf::I64(g6) = buf else { unreachable!() };
-    report("Q6", "delivery: GROUP BY outcome COUNT", ms, o6_ms, format!("{g6:?}"));
+    report(
+        "Q6",
+        "delivery: GROUP BY outcome COUNT",
+        ms,
+        o6_ms,
+        format!("{g6:?}"),
+    );
     assert_eq!(g6, o6, "Q6 outcome histogram");
 
     // Q7: bounced deliveries of mail in one mailbox — fk into `message`.
     let bounced = code("delivery", "outcome", "bounced");
     let box42 = code("message", "mailbox", who);
     let msg_lanes = [message.lane(0)];
-    let fgn_m = Foreign { planes: &[], lanes: &msg_lanes };
+    let fgn_m = Foreign {
+        planes: &[],
+        lanes: &msg_lanes,
+    };
     let q7 = Query {
         filter: Filter::and([
             Filter::plane(Mask(0)),
@@ -605,17 +783,28 @@ async fn main() {
     };
     let p7 = lower(&q7).expect("lower q7");
     let lo = Instant::now();
-    let o7 = (0..dd.rows()).filter(|&i| outcome[i] == 2 && mailbox[d_msg[i] as usize] == 42).count();
+    let o7 = (0..dd.rows())
+        .filter(|&i| outcome[i] == 2 && mailbox[d_msg[i] as usize] == 42)
+        .count();
     let o7_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (v, _, ms) = run(&p7, &dp, &fgn_m, reps, || OutBuf::None);
-    report("Q7", "delivery: bounced AND message.mailbox = user42 (fk join)", ms, o7_ms, count(&v));
+    report(
+        "Q7",
+        "delivery: bounced AND message.mailbox = user42 (fk join)",
+        ms,
+        o7_ms,
+        count(&v),
+    );
     assert_eq!(count(&v), o7, "Q7 bounced for one mailbox");
 
     // Q8: deliveries per mailbox — GROUP BY through the fk, 20k groups.
     let q8 = Query {
         filter: Filter::plane(Mask(0)),
         agg: Agg::GroupReduce {
-            key: GroupAddr::Via { fk: Col(0), key: ForeignLane(0) },
+            key: GroupAddr::Via {
+                fk: Col(0),
+                key: ForeignLane(0),
+            },
             agg: GroupAgg::Count,
         },
     };
@@ -627,13 +816,21 @@ async fn main() {
     }
     let o8_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (_, buf, ms) = run(&p8, &dp, &fgn_m, reps, || OutBuf::I64(vec![0; users]));
-    let OutBuf::I64(mut g8) = buf else { unreachable!() };
+    let OutBuf::I64(mut g8) = buf else {
+        unreachable!()
+    };
     let fold = match p8.terminal {
         lance_graph_mask_risc::Terminal::GroupReduce { fold, .. } => fold,
         other => panic!("Q8 lowered onto {other:?}"),
     };
     normalize_group_sink(fold, &mut g8);
-    report("Q8", "delivery: GROUP BY message.mailbox COUNT (20k groups)", ms, o8_ms, format!("{} groups", g8.len()));
+    report(
+        "Q8",
+        "delivery: GROUP BY message.mailbox COUNT (20k groups)",
+        ms,
+        o8_ms,
+        format!("{} groups", g8.len()),
+    );
     assert_eq!(g8, o8, "Q8 deliveries per mailbox");
 
     // -- documents -----------------------------------------------------
@@ -646,7 +843,10 @@ async fn main() {
     let invoices = code("document", "folder", "invoices");
     let open = code("ticket", "status", "open");
     let tk_lanes = [ticket.lane(0)];
-    let fgn_t = Foreign { planes: &[], lanes: &tk_lanes };
+    let fgn_t = Foreign {
+        planes: &[],
+        lanes: &tk_lanes,
+    };
     let q9 = Query {
         filter: Filter::and([
             Filter::plane(Mask(0)),
@@ -657,21 +857,38 @@ async fn main() {
     };
     let p9 = lower(&q9).expect("lower q9");
     let lo = Instant::now();
-    let o9 = (0..docd.rows()).filter(|&i| folder[i] == 1 && status[doc_ticket[i] as usize] == 0).count();
+    let o9 = (0..docd.rows())
+        .filter(|&i| folder[i] == 1 && status[doc_ticket[i] as usize] == 0)
+        .count();
     let o9_ms = lo.elapsed().as_secs_f64() * 1e3;
     let (v, _, ms) = run(&p9, &docp, &fgn_t, reps, || OutBuf::None);
-    report("Q9", "documents: invoices attached to open tickets (fk join)", ms, o9_ms, count(&v));
+    report(
+        "Q9",
+        "documents: invoices attached to open tickets (fk join)",
+        ms,
+        o9_ms,
+        count(&v),
+    );
     assert_eq!(count(&v), o9, "Q9 invoices on open tickets");
 
     // -- binding refuses what the codebook does not hold ---------------
-    let bad = table("ticket").where_eq("status", "escalated").count().bind(&cat);
+    let bad = table("ticket")
+        .where_eq("status", "escalated")
+        .count()
+        .bind(&cat);
     assert_eq!(
         bad,
-        Err(BindError::UnknownValue { field: "status".into(), value: "escalated".into() }),
+        Err(BindError::UnknownValue {
+            field: "status".into(),
+            value: "escalated".into()
+        }),
         "unknown literal must be refused, never minted"
     );
     let bad = table("ticket").where_eq("subject", "x").count().bind(&cat);
-    assert!(matches!(bad, Err(BindError::UnknownField { .. })), "unknown field refused");
+    assert!(
+        matches!(bad, Err(BindError::UnknownField { .. })),
+        "unknown field refused"
+    );
     println!("bind: unknown literal and unknown field refused, nothing minted");
     println!("ALL ANSWERS MATCH THE ORACLE");
 }

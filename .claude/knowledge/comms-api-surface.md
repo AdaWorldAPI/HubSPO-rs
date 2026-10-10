@@ -155,7 +155,10 @@ Gaps that matter for HubSPO-rs:
 ## 5. P-QDB-1 — Quack as the database (measured)
 
 See `.claude/board/LATEST_STATE.md` § P-QDB-1 for the table of numbers and the
-command. In short:
+command. At 3M tickets (30M rows across five tables), with fk-gathered
+tables stored in fk order, every query is ≤ 25 ms except Q9 (58.6 ms, its
+fk is random); with random fk order the delivery joins take 253 ms and
+1.9 s. In short:
 - HubSPO-rs implements Quack's `Registrar` + `Binder` in about 80 lines, with
   a codebook per field.
 - Five tables are written to Lance, reloaded, and queried by nine Quack
