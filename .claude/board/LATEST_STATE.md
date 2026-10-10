@@ -2,7 +2,7 @@
 
 > What exists right now. Update in the same commit as the change.
 
-**As of 2026-10-10 (Wave 0 merged in #2; harvester merged in #3; mint dossier ratified as v3 by the 5+3 council; D-ONT-4 in progress):**
+**As of 2026-10-10 (Wave 0 merged in #2; harvester merged in #3; mint dossier ratified as v3 by the 5+3 council; D-ONT-4 in PR as OGAR#330 + lance-graph#1438):**
 
 ## Workspace
 
@@ -12,7 +12,7 @@
 - `hubspo-port` depends on `lance-graph-contract` (feature `guid-v3-tail`)
   and `ogar-vocab`, both on `branch = "main"`, and re-exports `HotPlug` and
   `PortSpec`. It holds no codebook and no prefix constant: `HubSpoPort`
-  (`0x000B`) does not exist in OGAR yet (D-ONT-4).
+  (`0x000B`) is in OGAR#330, not yet on OGAR `main` (D-ONT-4).
 - `hubspo-guards` enforces Gate G0 as tests (rules in its `lib.rs` header).
   9 unit tests (each rule can fire and can stay silent) + 1 workspace scan.
   All six disable runs measured red on 2026-10-10:

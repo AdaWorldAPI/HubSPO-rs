@@ -326,3 +326,33 @@ HubSPO-rs, MedCare-rs, q2, odoo-rs, spear, tesseract-rs,
 openproject-nexgen-rs, openstreetmap-website-rs, stalwart and rs-graph-llm.
 woa-rs and smb-office-rs are not available in this environment and were not
 searched.
+
+---
+
+## §7 Amendment (2026-10-10, during D-ONT-4) — `crm_actions` deferred to D-ACT-1
+
+**DECISION.** The D-ONT-4 OGAR PR (AdaWorldAPI/OGAR#330) ships no
+`crm_actions` table. §4.2's seed rows (`crm_read`, `crm_merge`,
+`crm_gdpr_delete`, `crm_enroll`) move to D-ACT-1.
+
+**BASIS.** OGAR's `geo_actions` rule: every action entry must correspond to a
+primitive the consumer implements today. "Backed by a measured endpoint"
+means HubSpot has the operation; it does not mean HubSPO-rs does, and today
+HubSPO-rs implements none of them. Seeding the rows would declare a surface
+nobody implements.
+
+**SCOPE.** Everything else in §4.2 still applies when D-ACT-1 lands the table:
+subjects only `0x0501`–`0x050F`, executors `["hubspo-rs"]`, `crm_` prefix, the
+subject-fence test, the round trip and the wrong-consumer rejection.
+
+**Consequence for D-ONT-5.** `resolve_hotplug` reports `NoCapabilitiesFor` for
+a plugged id that has no capability rows. Until D-ACT-1, D-ONT-5 binds
+`RbacPlug` and asserts that a `HotPlug` over the Crm ids fails with
+`NoCapabilitiesFor`. The full `HotPlug` round trip moves to D-ACT-1.
+
+**REVISIT WHEN** HubSPO-rs implements its first CRM operation (D-ACT-1).
+
+**Landed:** OGAR#330 (domain, 15 concepts, `HubSpoPort`, docs) and the
+lance-graph mirror AdaWorldAPI/lance-graph#1438 (codebook rows,
+`AppPrefix::{Osm, WeatherNext, Spear, HubSpo}`). Merge order per §4.1.
+
