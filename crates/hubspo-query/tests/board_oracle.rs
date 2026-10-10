@@ -254,3 +254,31 @@ fn weighting_the_stage_total_equals_summing_weighted_records() {
         assert_eq!(weighted(total, probability_bp(c.stage)), per_record);
     }
 }
+
+#[test]
+fn stages_no_kept_record_reaches_are_left_out() {
+    let d = deals();
+    let cat = catalog();
+    let filter = compile(
+        "deals",
+        &[FilterGroup {
+            filters: vec![
+                PropertyFilter::new("hubspot_owner_id", Operator::Eq, "ben"),
+                PropertyFilter::new("amount", Operator::Gte, "178000"),
+            ],
+        }],
+        &cat,
+    )
+    .expect("compile");
+    let got = board(&d, &filter);
+    let want = tally(&d, |i| {
+        d.owner[i] == 1 && d.amount[i].is_some_and(|a| a >= 178_000)
+    });
+    assert_eq!(got, want);
+    // Anti-vacuity: the filter must leave stages empty, and keep some.
+    assert!(
+        !got.is_empty() && got.len() < (PIPELINES * STAGES) as usize / 2,
+        "{} stages",
+        got.len()
+    );
+}
