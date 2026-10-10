@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-compat"
+description = "The HubSpot CRM v3-shaped REST surface, the importer from a real HubSpot portal, and the value-oracle client."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

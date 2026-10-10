@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-query"
+description = "Filters, lists, views and reports as Quack programs and lance-graph-report plans."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

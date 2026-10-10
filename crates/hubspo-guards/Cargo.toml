@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-guards"
+description = "Structural guards for the HubSPO-rs workspace: forbidden dependencies, zone discipline and identity shapes, checked as tests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

@@ -1,0 +1,4 @@
+/target
+# Consumers of the fleet's git-branch dependencies do not commit a lockfile
+# (lance-graph consumer preflight).
+Cargo.lock

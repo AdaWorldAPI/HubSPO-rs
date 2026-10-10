@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-iam"
+description = "Roles, the grant source, per-role field masks and directory actors over ogar-rbac and dir-sim."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

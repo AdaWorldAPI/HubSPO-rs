@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-store"
+description = "Write lanes, the batch image, publish-one-Lance-version, the KV value store, association edge lanes and list masks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

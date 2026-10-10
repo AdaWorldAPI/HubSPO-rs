@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-parity-fixtures"
+description = "Test-only value-oracle and structure-oracle (Klickwege) fixtures."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-harvest"
+description = "Tool: harvests HubSpot's public OpenAPI specs and a sandbox portal's property, pipeline and association-label definitions into normalised schema input for OGAR."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

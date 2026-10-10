@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-schema"
+description = "ClassView skins per object type, the standard property position tables (generated), and tenant custom-schema rows (H-ADR-3)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

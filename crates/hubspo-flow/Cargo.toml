@@ -1,0 +1,12 @@
+[package]
+name = "hubspo-flow"
+description = "Workflows, sequences, SLA timers and enrolment triggers: graph-flow graphs run under ractor supervision."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
