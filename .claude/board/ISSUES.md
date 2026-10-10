@@ -5,7 +5,7 @@
 
 ## ISS-HIST-SCAN-COST — property history scans the whole log
 
-- **Status:** OPEN (D-STO-5 budget; correctness shipped)
+- **Status:** RESOLVED 2026-10-10 without either lever: history folds over the resident log records instead of scanning Lance (0.72 ms vs 336 ms); Lance is read once, by replay. No index, no projection, no Lance filter expression.
 - **Where:** `hubspo-store::log::Log::history`.
 - **What:** history reads every log record and runs the Quack program over them. Measured 2026-10-10 (`examples/probe_history.rs`, release, 100k records, 1,000 versions × 1,000 updates, 1.2M log records, one fragment per version): 336 ms, 320 ms of it the raw scan. P-HIST-1's budget is < 20 ms. The program is not the cost.
 - **Not a lever:** compaction. DECISION 2026-10-10 (operator): the log is never compacted, because the append order gives version order for free. (A one-off measurement compacted to one fragment read in 57 ms, still over budget.)

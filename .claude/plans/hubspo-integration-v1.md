@@ -861,8 +861,15 @@ rewritten, so nothing depends on keeping old Lance versions.
 
 *Decision 2026-10-10:* the log is never compacted. The append order gives
 version order for free, and readers (history, replay) rely on it instead of
-sorting. History speed comes from reading fewer columns or an index on
-`row` (ISS-HIST-SCAN-COST), not from compaction.
+sorting.
+
+*Decision 2026-10-10:* history is a fold over the log records held
+resident, not a read of Lance. One write costs about a million folds
+(lance-graph 2026-09-24), and a Lance scan is recovery cost; so `replay`
+reads Lance once and every read after it folds over memory. Measured:
+0.72 ms for 1,001 entries over 1.2M records, against 336 ms scanning Lance.
+New persistent state comes only from learning, recorded after as one
+merged, auditable outcome; derived reads like history write nothing.
 
 ### 5.3 Timeline
 
@@ -1108,7 +1115,7 @@ with identical responses modulo ids/timestamps.
 |---|---|---|
 | P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold — **lanes pass (1.61× at 500), packed fails (18×)**, 2026-10-10 |
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 — **passes: 7.8 ms fresh / 5.0 ms shared session, local disk**, 2026-10-10 |
-| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s**. **Passes with the split-tunnel sparse delta (P-SPARSE-1): 16.9 ms indexed, 3.3–5.9 ms compacted** |
+| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s**. **Passes with the split-tunnel sparse delta (P-SPARSE-1): 16.9 ms indexed, 3.3–5.9 ms compacted**. **Passes as shipped (D-STO-5): 0.72 ms as a fold over resident log records** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10. **Both pass with the sparse delta (P-SPARSE-1): 1.93 ms, 257 KiB flat at 10M** |
 | P-QDB-1 | Quack as the database for tickets / mail / delivery / documents | every read through a bound Quack program over Lance-resident columns, answers equal a plain-loop oracle, < 50 ms at 3M tickets — **passes with fk-ordered storage (all ≤ 25 ms at 3M except Q9 58.6 ms, whose fk is random); random fk layouts fail (253 ms / 1.9 s)**, 2026-10-10 |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
