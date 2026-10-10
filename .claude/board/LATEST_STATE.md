@@ -82,8 +82,8 @@
   A seventh guard (`reads_value`, keeping presence-only properties off the
   nullable list) stayed green and was deleted: `sql_where` gates only
   comparison leaves, so it guarded nothing.
-- Blocked in CI on `ISS-LG-MASKRISC-PATH-NDARRAY` (Quack is not consumable
-  by git until the lance-graph fix merges).
+- Quack became consumable by git with lance-graph #1457
+  (`ISS-LG-MASKRISC-PATH-NDARRAY`, resolved).
 
 ## Harvest (D-ONT-1, public-catalog half)
 

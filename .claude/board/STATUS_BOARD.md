@@ -46,7 +46,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | In PR | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; waits on `ISS-LG-MASKRISC-PATH-NDARRAY` |
+| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | In PR | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M; alloc ∝ fragments touched. P-SPARSE-1: 1.93 ms, 257 KiB flat at 10M |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | Queued |  |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
