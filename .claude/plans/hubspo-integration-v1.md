@@ -870,6 +870,8 @@ reads Lance once and every read after it folds over memory. Measured:
 0.72 ms for 1,001 entries over 1.2M records, against 336 ms scanning Lance.
 New persistent state comes only from learning, recorded after as one
 merged, auditable outcome; derived reads like history write nothing.
+The pattern is documented for every consumer in lance-graph
+`.claude/knowledge/split-tunnel-sparse-append-resident-fold.md`.
 
 ### 5.3 Timeline
 

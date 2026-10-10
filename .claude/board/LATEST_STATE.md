@@ -151,7 +151,9 @@
   it commits or replays resident (29 B each). Lance is the persistence
   clock: `replay` reads it once, `commit` writes one version per batch.
   Rule applied: one write costs about a million folds (lance-graph
-  2026-09-24); a Lance scan is recovery cost. The log's `op`
+  2026-09-24); a Lance scan is recovery cost. Documented as a shared
+  pattern in lance-graph `.claude/knowledge/split-tunnel-sparse-append-resident-fold.md`
+  (#1466), with this crate as the reference implementation. The log's `op`
   and `lane` columns widened to `u32` for this (no data existed yet).
 - Tests: for every record and both lanes over 30 random batches, the
   history equals one written down from the batches (anti-vacuity: updates,

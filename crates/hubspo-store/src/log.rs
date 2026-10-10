@@ -20,8 +20,12 @@
 //! one appends exactly one Lance version. [`Log::commit`] checks the log's
 //! latest version before and after the append; anything else means a second
 //! writer, which breaks one-writer-per-mailbox and is reported as
-//! [`LogError::Diverged`], never accepted. Lance appends do not conflict
-//! with each other, so this check is what enforces the rule.
+//! [`LogError::Diverged`]. The checks do not *enforce* one writer; ownership
+//! does (one writer per mailbox). The check before the append refuses a
+//! stale writer. A racing writer passes it, because Lance rebases an
+//! `Append` instead of failing it, and the check after the append detects
+//! the race only once that batch is durable; replay then refuses the log
+//! until it is reconciled (ISS-LOG-RACING-WRITER).
 //!
 //! **Durable first.** `commit` validates the batch, appends it, and only
 //! then applies it to the table. If the append fails the table is
@@ -312,8 +316,10 @@ impl Log {
         let after = ds.version().version;
         // Reached only when another writer appends between the check above
         // and this write. No test can schedule that race; a disable run
-        // stays green (the sequential case is caught above). Kept because
-        // Lance appends do not conflict, so nothing else would notice.
+        // stays green (the sequential case is caught above). It detects,
+        // it does not prevent: by now this batch is durable (Lance rebases
+        // appends), so the log needs reconciling (ISS-LOG-RACING-WRITER).
+        // Kept because nothing else would notice.
         if after != before + 1 {
             return Err(LogError::Diverged {
                 expected: before + 1,

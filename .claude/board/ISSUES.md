@@ -3,6 +3,13 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LOG-RACING-WRITER — a racing second writer is detected only after its batch is durable
+
+- **Status:** OPEN (found by review on lance-graph #1466)
+- **Where:** `hubspo-store::log::Log::commit`.
+- **What:** one writer per log comes from ownership (one writer per mailbox, iron rule 11), not from `commit`'s version checks. The check before the append refuses a stale writer. Two writers that both pass it both append, because Lance rebases an `Append` instead of failing it (lance-graph `spog-alpha-channel-v1.md` F6). The check after the append then reports `Diverged`, but the batch is already durable. Replay then refuses the log: two batches share a version and the Lance version no longer matches the batch count.
+- **Fix:** in-band idempotency, `(cycle, batch_hash)` in the same commit and reconciled first (the F6 shape), or a writer lease. Not needed while a single owner writes each log, which is the deployment shape.
+
 ## ISS-HIST-SCAN-COST — property history scans the whole log
 
 - **Status:** RESOLVED 2026-10-10 without either lever: history folds over the resident log records instead of scanning Lance (0.72 ms vs 336 ms); Lance is read once, by replay. No index, no projection, no Lance filter expression.
