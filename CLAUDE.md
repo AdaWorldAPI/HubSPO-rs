@@ -33,7 +33,7 @@ first, reimagine second, touch grass.
    never a hard-coded concept hex. New keys use `mint_for` (V3), never
    `NodeGuid::new`. *Enforced: hubspo-guards (`StringId`, `V1Mint`).*
 2. **HubSPO-rs never mints concepts.** New CRM concepts are requested from
-   OGAR (port `0x000B`, domain `0x10XX`) and pass the three-axis gate
+   OGAR (port `0x000B`, domain `0x05XX`) and pass the three-axis gate
    (METHOD ∧ STORAGE ∧ STRUCTURE) and the 5+3 codebook council. Converge
    onto an existing concept first.
 3. **Custom objects and custom properties are tenant data**, never minted

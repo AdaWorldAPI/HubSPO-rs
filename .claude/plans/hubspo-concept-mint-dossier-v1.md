@@ -5,7 +5,7 @@
 > **Status:** DRAFT 2026-10-10. Nothing here is minted; every row is a
 > proposal with its evidence.
 > **Approved context (2026-10-10):** port `HubSpoPort` at app prefix
-> `0x000B`; a new concept domain at `0x10XX`; custom objects as tenant data
+> `0x000B`; a new concept domain at `0x05XX` (OD-2, byte amended from `0x10` on 2026-10-10); custom objects as tenant data
 > (plan H-ADR-2, H-ADR-3, §10).
 
 ---
@@ -62,7 +62,7 @@ Extra verbs are named.
 
 ## 3. Verdicts
 
-### 3.1 MINT — new concepts in `ConceptDomain::Crm` (`0x10XX`)
+### 3.1 MINT — new concepts in `ConceptDomain::Crm` (`0x05XX`)
 
 The council assigns the hex. The order below is a suggestion only.
 
@@ -157,7 +157,7 @@ the ALIAS rows cover every object behind a v1 row of the feature matrix.
 - **Q3** `crm_sequence`: concept (recommended) or graph-flow data only?
 - **Q4** `notes` → `PROJECT_COMMENT`: is that concept domain-neutral enough to carry CRM notes?
 - **Q5** users and owners → `PROJECT_ACTOR` (recommended, refines H-ADR-2) rather than `HR_EMPLOYEE`?
-- **Q6** Hex order inside `0x10XX`: assigned by the council; this dossier proposes only names.
+- **Q6** Hex order inside `0x05XX`: assigned by the council; this dossier proposes only names.
 
 ## 6. What happens after the council
 

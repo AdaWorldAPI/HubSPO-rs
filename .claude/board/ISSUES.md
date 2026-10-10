@@ -21,7 +21,7 @@
 - **Where:** OGAR `crates/ogar-vocab` (ports, `class_ids`, `ConceptDomain`,
   `capability_registry::domain_tables`), lance-graph `ogar_codebook` mirror.
 - **What:** approved 2026-10-10 (OD-1, OD-2): port `0x000B`, domain
-  `0x10XX`, a `crm_actions` domain table. Concepts mint only after the
+  `0x05XX` (OD-2 amended), a `crm_actions` domain table. Concepts mint only after the
   D-ONT-3 dossier passes the 5+3 codebook council.
 - **Next:** the dossier (`hubspo-concept-mint-dossier-v1.md`) goes to the
   OGAR 5+3 council; then the OGAR PR (D-ONT-4).

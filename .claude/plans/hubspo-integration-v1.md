@@ -379,7 +379,8 @@ review required for those marked **[OPERATOR]**.
   | `crm_feedback_survey` | `Survey/*` | |
   | `crm_custom_record` | new | the custom-object carrier (H-ADR-3) |
 
-  Domain byte: `0x10XX` is unassigned (`lib.rs:1763`); needs a
+  Domain byte: `0x05XX` (OD-2, amended 2026-10-10; was `0x10XX`) is
+  unassigned; needs a
   `ConceptDomain::Crm` arm and a `"crm"` tag in `source_domain_concept`
   (which today knows only `"project"` and `"erp"`, `lib.rs:1845`).
 - Add `crm_actions` to `capability_registry::domain_tables()` so
@@ -820,7 +821,7 @@ workspace; no `String` id, no `serde` outside zone-3 crates
 | D-ONT-1 | Harvest: `hubspo-harvest` pulls HubSpot's public OpenAPI specs + the properties/pipelines/association-label APIs of a sandbox portal → normalised schema JSON (zone 3, tool only) | M | W0 |
 | D-ONT-2 | OGAR: `ogar-from-schema` OpenAPI front end (queued upstream, `lib.rs:48`) — **requested from OGAR, not built in HubSPO-rs** | L | D-ONT-1 |
 | D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | D-ONT-1 |
-| D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x10XX`), approved concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, `crm_actions` domain table, layout doc row; lance-graph `ogar_codebook` mirror rows in the same arc | M | D-ONT-3 |
+| D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x05XX`), approved concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, `crm_actions` domain table, layout doc row; lance-graph `ogar_codebook` mirror rows in the same arc | M | D-ONT-3 |
 | D-ONT-5 | `hubspo-port`: `HotPlug` + `RbacPlug` consts; `activate()` test that reports zero drift; deliberately-wrong-plug test proving each drift arm can fire | S | D-ONT-4 |
 | D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | D-ONT-4 |
 | D-ONT-7 | Custom-object/-property design (H-ADR-3) + probe P-CUSTOM-1 (lane-per-property vs packed run; fold latency at 50 / 500 / 2,000 custom properties) | M | D-ONT-6 |
@@ -1049,7 +1050,7 @@ below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
 | ID | Question | Recommendation (approved) |
 |---|---|---|
 | OD-1 | `HubSpoPort` app prefix `0x000B`? | yes (next free after Spear) |
-| OD-2 | New `ConceptDomain::Crm` at `0x10XX` vs folding into Commerce `0x02XX` | new domain; CRM is not commerce |
+| OD-2 | New `ConceptDomain::Crm` vs folding into Commerce `0x02XX`; which domain byte | new domain; CRM is not commerce. **Byte amended 2026-10-10: `0x05`, not `0x10`.** The council found `0x10` outside the business band `0x00`–`0x0F` (OGAR altitude ruling 2026-08-18), its root slot `0x1000` is the V3 marker, and legacy `0x1000_DDCC` ids would route to it. `0x05` is free in OGAR, lance-graph and every consumer. |
 | OD-3 | Custom objects as data (H-ADR-3) vs per-tenant concepts | data |
 | OD-4 | crm-sim: generalise `ogar-dir-sim` meaning types vs HubSPO-rs-local types | local first, upstream when a second consumer appears |
 | OD-5 | Re-home spear D-HUB-1/2/3/7 into HubSPO-rs (H-ADR-12) | yes |
