@@ -86,6 +86,34 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-AUTH-1 (plan H-ADR-9)
+
+`probes/p-auth-1`. Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-auth-1/Cargo.toml && target/probes/release/p-auth-1`.
+10M rows `(id, owner, amount)`, 1,000 owners, read = `sum(amount)`. Arms
+run interleaved, 21 iterations; overhead = per-iteration ratio to the
+unscoped read, median [p25, p75]. Every arm's sum is asserted. Measured
+2026-10-10:
+
+| scope | share | unscoped ms | owner check | word-wise scope mask | take masked rows | kernel only: plain / mask ms |
+|---|---|---|---|---|---|---|
+| everything | 100 % | 81.0 | +45.7 % [+40.7, +62.0] | −7.3 % [−17.2, +12.8] | — | 6.80 / 6.90 |
+| team-owned | 20 % | 82.5 | +42.7 % [+37.6, +59.5] | −1.7 % [−13.4, +12.2] | — | 6.83 / 10.30 |
+| owned-only | 0.1 % | 81.0 | +49.2 % [+37.5, +67.9] | −4.5 % [−10.6, +9.0] | −80.9 % [−82.5, −78.3] | 7.77 / 3.85 |
+
+Verdict: **passes, under conditions.** The scan itself varies by more than
+the 10 % budget between iterations on this VM (IQR ±15 %), so the
+end-to-end ratios cannot resolve it; the in-memory kernel delta can: the
+word-wise mask adds 0.1–3.5 ms to a ~81 ms read (≤ 4.3 %) and is faster
+than the plain sum for a sparse scope. Conditions: the scope is a stored
+mask (H-ADR-5 algebra), not a per-row owner check (+43–49 %, it reads the
+`owner` column); and a scope under 5 % of rows takes the masked rows
+instead of scanning (−81 %). A bit-by-bit mask loop (branchy or
+branchless) lands at +12–25 %, so the kernel shape matters. The role
+decision per request (`ogar-rbac` authorize) is not in the measurement.
+Disable run: summing zero mask words as if full → assertion red;
+restored green.
+
 ## Probe P-TEN-1 (plan §5.5)
 
 `probes/p-ten-1`. Command:
