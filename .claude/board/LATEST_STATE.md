@@ -63,6 +63,55 @@
 - Not covered yet: per-portal property, pipeline and label definitions
   (needs `ISS-ORACLE-PORTAL`).
 
+## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
+
+`probes/p-qdb-1`. Command:
+`target/probes/release/p-qdb-1 <tickets> [none|code|via|live] [clustered]`.
+Five tables (`user` 20k, `ticket` N, `message` 4N, `delivery` 4N,
+`document` N) are written to Lance, reloaded once into resident Arrow
+columns, and read only through Quack: HubSPO-rs implements Quack's
+`Registrar` and `Binder` (catalog + per-field codebook; upstream has no
+production implementation), text binds once to `u32` codes, and mask-risc
+executes. Every answer is asserted against a plain-loop oracle. Measured
+2026-10-10, median of 15, release:
+
+| query | 1M tickets, clustered | 3M tickets, clustered | 3M, random fk |
+|---|---|---|---|
+| Q1 tickets open ∧ pipeline (bound text) | 0.79 ms | 3.9 ms | — |
+| Q2 … ∧ owner.team (fk join `EqU32Via`) | 3.1 ms | 9.3 ms | — |
+| Q3 tickets GROUP BY status | 2.0 ms | 4.0 ms | — |
+| Q4 unseen in one mailbox (full scan) | 5.7 ms | 15.1 ms | — |
+| Q5 one ticket's thread (rows) | 2.8 ms | 7.3 ms | — |
+| Q6 delivery GROUP BY outcome | 8.3 ms | 18.6 ms | — |
+| Q7 bounced ∧ message.mailbox (fk join) | 8.6 ms | 25.1 ms | 253 ms |
+| Q8 deliveries GROUP BY message.mailbox (20k groups) | 6.6 ms | 24.1 ms | 1,942 ms |
+| Q9 invoices on open tickets (fk join, random fk) | 10.8 ms | 58.6 ms | — |
+
+- Load: 3M tickets (30M rows across tables) write to Lance in 1.3 s and
+  reload to resident columns in 1.0 s; bind + lower takes 0.013 ms.
+- **The fk join cost is the foreign key's storage order, not Quack.** With
+  `delivery.message` random, Q7/Q8 are 10–80× slower (253 ms / 1.9 s at 3M)
+  and the plain loop is just as slow. Q9 (documents' ticket fk is random)
+  is 58.6 ms at 3M. Rows that are gathered through an fk must be stored in
+  fk order; delivery events arrive grouped by message, so this holds for
+  delivery if the write lane keeps arrival order.
+- Q7 under a random fk is 2× slower than the loop: the survivor skip is
+  per 64-row word, and a 5% predicate leaves a survivor in ~96% of words,
+  so the gather runs over nearly all rows; the loop short-circuits per row.
+- Q4 scans all mail for one mailbox (15 ms at 12M rows); per-mailbox reads
+  want the mailbox as a storage partition or sort key.
+- Binding an unknown literal (`status = 'escalated'`) is `UnknownValue` and
+  an unknown field is `UnknownField`; nothing is minted.
+- Disable runs, each red at 200k tickets: `code` (swap two status codes in
+  the codebook) fails Q1 (18,131 vs 47,941); `via` (join through the wrong
+  foreign lane) fails Q2 (0 vs 910); `live` (drop the last live-plane word)
+  fails Q1 (47,922 vs 47,941).
+
+Verdict: Quack serves as the read engine for tickets, mail, delivery and
+documents over Lance-resident columns, provided HubSPO-rs owns the catalog
+and codebooks and stores fk-gathered tables in fk order. The API map this
+rests on is `.claude/knowledge/comms-api-surface.md`.
+
 ## Probe P-LOG-1 (plan H-ADR-15 condition 4)
 
 `probes/p-log-1` (standalone, needs `protoc`). Command:

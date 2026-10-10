@@ -487,6 +487,17 @@ review required for those marked **[OPERATOR]**.
 - Programs / user-defined logic (calculated properties, custom-code
   workflow actions) are **ogar-loco** programs, never embedded JS/Python
   in the hot path.
+- **Quack is the database read surface (2026-10-10, P-QDB-1).** Quack has
+  no storage and no catalog: `lance-graph-quack::bind` names the
+  `Registrar` seam and only tests implement it. HubSPO-rs therefore owns
+  the catalog (`Registrar` + `Binder`, one codebook per coded field) in
+  `hubspo-store`, keeps each table as a Lance dataset, loads columns once
+  as resident Arrow buffers, and runs every read as a bound Quack program.
+  No string reaches a lane; text binds once to `u32` codes (dir-sim
+  `KeyId`s for addresses). A table read through an fk gather is stored in
+  fk order: P-QDB-1 measured 10–80× between fk-ordered and random layouts.
+  `ORDER BY` and full-text search are not Quack's: order is storage order,
+  text search is the Tantivy index.
 
 ### H-ADR-7 — Behaviour: ActionDef + KausalSpec, run by graph-flow; state is published versions
 
@@ -994,14 +1005,14 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 | D-id | Deliverable | Size | Deps |
 |---|---|---|---|
 | D-MAIL-1 | stalwart deployment profile (separate service, AGPL stays there). stalwart keeps its own directory (internal store, or LDAP/OIDC) for delivery and login; the CRM joins contacts to mailboxes through spear's placement over the dir-sim version (`spear/src/mail/directory.rs`). No dir-sim backend in stalwart (OD-12) | M | G5 |
-| D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | spear D-HUB-4/5 |
+| D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events. stalwart's `message-ingest.ham` carries ChangeId / BlobId but no JMAP Email id or ThreadId (fetch via `Email/changes`); `delivery.delivered` has no QueueId (correlate by SpanId with `delivery.attempt-start`) | M | spear D-HUB-4/5 |
 | D-MAIL-3 | One-to-one email send from a record via JMAP `EmailSubmission`; `send_receipts` row | M | D-MAIL-2 |
 | D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`, no impl in tree) | L | D-MAIL-2 |
 | D-MAIL-5 | Shared inbox / conversations: new spear roles (team inbox member, inbox admin) + ownership routing | L | D-MAIL-4, D-IAM-2 |
 | D-MAIL-6 | Meetings: CalDAV / JMAP Calendars, iTIP, booking pages (availability fold over calendars), meeting engagement records | XL | D-MAIL-1 |
 | D-MAIL-7 | Contact sync (CardDAV / JMAP Contacts) — two-way, conflict policy via crm-sim | L | D-MAIL-1, D-SIM-1 |
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | D-ONT-6 |
-| D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag | M | D-MAIL-3 |
+| D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag. stalwart has none, and `EmailSubmission` returns empty `mdnBlobIds`/`dsnBlobIds` and `displayed: unknown`, so read and delivery receipts come from webhooks only | M | D-MAIL-3 |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | D-ACT-1 |
 
 **Gate G6:** end-to-end: send from a record → delivered event → timeline
@@ -1094,6 +1105,7 @@ with identical responses modulo ids/timestamps.
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 — **passes: 7.8 ms fresh / 5.0 ms shared session, local disk**, 2026-10-10 |
 | P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s**. **Passes with the split-tunnel sparse delta (P-SPARSE-1): 16.9 ms indexed, 3.3–5.9 ms compacted** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10. **Both pass with the sparse delta (P-SPARSE-1): 1.93 ms, 257 KiB flat at 10M** |
+| P-QDB-1 | Quack as the database for tickets / mail / delivery / documents | every read through a bound Quack program over Lance-resident columns, answers equal a plain-loop oracle, < 50 ms at 3M tickets — **passes with fk-ordered storage (all ≤ 25 ms at 3M except Q9 58.6 ms, whose fk is random); random fk layouts fail (253 ms / 1.9 s)**, 2026-10-10 |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows — **passes: 27 ms p99 (1M contacts, 200 versions)**, 2026-10-10 |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan — **passes with a word-wise scope mask (≤ 4.3 % kernel delta); per-row owner check fails (+43–49 %)**, 2026-10-10 |
@@ -1155,7 +1167,7 @@ below. Cross-repo follow-ups are tracked in `.claude/board/ISSUES.md`.
 | OD-9 | Edition 2024 for HubSPO-rs | yes |
 | OD-10 | Which HubSpot sandbox portal is the value oracle, and who holds its token | operator |
 | OD-11 | lance-graph `ogar-consumer-preflight.md` still whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph `CLAUDE.md` floats `12.*` / `0.39.*` | follow `CLAUDE.md`; fix the preflight upstream |
-| OD-12 | How stalwart gets users and teams (`ISS-STALWART-DIRSIM-WIRING`): (a) build the dir-sim backend outside stalwart's config model, (b) dir-sim persistence + stalwart's schema generator first, (c) stalwart keeps its own directory and the CRM join key comes from spear's placement | (c) — approved 2026-10-10 |
+| OD-12 | How stalwart gets users and teams (`ISS-STALWART-DIRSIM-WIRING`): (a) build the dir-sim backend outside stalwart's config model, (b) dir-sim persistence + stalwart's schema generator first, (c) stalwart keeps its own directory and the CRM join key comes from spear's placement | (c) — approved 2026-10-10 The fork's `crates/directory/src/backend/dirsim/` exists behind feature `dir-sim` but nothing constructs it and the registry `Directory` enum has no variant for it (re-read 2026-10-10, `.claude/knowledge/comms-api-surface.md` §3). |
 
 ---
 
