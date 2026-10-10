@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 lance-graph-contract.workspace = true
 ogar-vocab.workspace = true
+ogar-rbac.workspace = true
 
 [lints]
 workspace = true
