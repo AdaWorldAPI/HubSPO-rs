@@ -453,6 +453,12 @@ review required for those marked **[OPERATOR]**.
   `lance-graph-report/src/lib.rs`).
 - Active-list re-evaluation is incremental: evaluate the predicate over the
   overlay delta of the new Lance version, OR/ANDNOT into the stored mask.
+  *Measured 2026-10-10 (P-LIST-1):* clear the bits of the deleted row ids,
+  then re-evaluate the rows of the fragments added since the stored
+  version; 1,000 changes cost 1.7–2.6 ms from 100k to 10M rows and match a
+  full recompute exactly. Allocation is ~224 KiB for the added rows plus
+  ~200 KiB per fragment whose deletion vector changed (Lance's deleted-row
+  read loads that fragment's row-id sequence and runs an anti-join).
 - Forbids: `Vec<ContactId>` as a list, per-row Rust filtering loops in the
   engine.
 
@@ -1056,7 +1062,7 @@ with identical responses modulo ids/timestamps.
 | P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold |
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 |
 | P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
-| P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population |
+| P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10 |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan |
