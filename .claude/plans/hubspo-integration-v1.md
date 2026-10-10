@@ -465,6 +465,10 @@ review required for those marked **[OPERATOR]**.
   full recompute exactly. Allocation is ~224 KiB for the added rows plus
   ~200 KiB per fragment whose deletion vector changed (Lance's deleted-row
   read loads that fragment's row-id sequence and runs an anti-join).
+  *Re-measured 2026-10-10 (P-SPARSE-1):* with sparse delta records instead
+  of in-place updates there are no deletion vectors; the step reads only
+  the delta appended since its offset — 0.85–1.93 ms, 251–257 KiB at 1M
+  and 10M rows, flat in population and in delta history.
 - Forbids: `Vec<ContactId>` as a list, per-row Rust filtering loops in the
   engine.
 
@@ -833,6 +837,17 @@ still over 20 ms. The floor is about 0.45 ms per read, one fragment open
 each. D-STO-5 stays blocked until a follow-up probe measures reusing open
 fragment readers versus carrying the scalar value in the index entry.
 
+*Measured 2026-10-10 (P-SPARSE-1, board LATEST_STATE), superseding the
+blocker above:* the cost came from updating records in place. With the
+alpha split tunnel's persistence half — base dataset written once and
+never updated, every change appended as a sparse `(row, value, version,
+op)` record, reads merging base and delta newest-first — the same history
+read takes 16.9 ms with a BTree index on `row` (1,000 versions, 1,000
+fragments) and 3.3–5.9 ms after compacting the delta (100k–1M records).
+Writing the 1,000 versions takes 6.6–12.4 s instead of ~300 s. The delta
+is append-only, so compacting it loses no history; the base is never
+rewritten, so nothing depends on keeping old Lance versions.
+
 ### 5.3 Timeline
 
 The record timeline is spear's `activity` table (D-HUB-4) joined on
@@ -1077,8 +1092,8 @@ with identical responses modulo ids/timestamps.
 |---|---|---|
 | P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold — **lanes pass (1.61× at 500), packed fails (18×)**, 2026-10-10 |
 | P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 — **passes: 7.8 ms fresh / 5.0 ms shared session, local disk**, 2026-10-10 |
-| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
-| P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10 |
+| P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s**. **Passes with the split-tunnel sparse delta (P-SPARSE-1): 16.9 ms indexed, 3.3–5.9 ms compacted** |
+| P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10. **Both pass with the sparse delta (P-SPARSE-1): 1.93 ms, 257 KiB flat at 10M** |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows — **passes: 27 ms p99 (1M contacts, 200 versions)**, 2026-10-10 |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan — **passes with a word-wise scope mask (≤ 4.3 % kernel delta); per-row owner check fails (+43–49 %)**, 2026-10-10 |

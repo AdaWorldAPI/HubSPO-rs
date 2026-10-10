@@ -86,6 +86,51 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-SPARSE-1 (split-tunnel persistence arm; re-runs P-HIST-1 and P-LIST-1)
+
+`probes/p-sparse-1`. Commands:
+`target/probes/release/p-sparse-1 hist 1000000 1000 {100,1000}` and
+`target/probes/release/p-sparse-1 list {1000000,10000000} {0,100} 1000`.
+The alpha split tunnel (lance-graph `contract/src/alpha_tunnel.rs`) reads
+a read-only base and writes a sparse overlay at the same addresses;
+`AlphaOverlay` stamps attention and carries no payload, so this probe builds
+the persistence half (lance-graph board entry 2026-09-23, "third probe
+arm"): the base dataset is written once and never updated; each writer
+version appends sparse records `(row, a, version, op)` to an append-only
+delta dataset; reads merge base and delta, newest version wins. Measured
+2026-10-10:
+
+| hist (1M rows, 1,000 versions) | 100 per version | 1,000 per version |
+|---|---|---|
+| delta records | 100k | 1M |
+| write all versions | 9.2 s | 12.4 s |
+| scan, 1,000 fragments | 218.5 ms | 256.0 ms |
+| BTree index on `row`, 1,000 fragments | 16.9 ms (build 0.22 s) | 15.0 ms (build 0.46 s) |
+| compacted to 1 fragment, scan | 6.0 ms | 27.5 ms |
+| compacted, indexed (compact + index 0.43 / 1.69 s) | 3.3 ms | 5.9 ms |
+
+| list | prefill versions | delta fragments | step ms | alloc KiB |
+|---|---|---|---|---|
+| 1M | 0 | 1 | 0.85 | 251 |
+| 1M | 100 | 101 | 1.45 | 257 |
+| 10M | 0 | 1 | 1.68 | 252 |
+| 10M | 100 | 101 | 1.93 | 257 |
+
+Verdict: **P-HIST-1 passes** (16.9 ms indexed vs 20 ms; 3.3–5.9 ms once
+the delta is compacted), and writes are ~25–45× cheaper than in-place
+updates (~300 s). **P-LIST-1 passes on both counts**: allocation is flat in
+population and in delta history, because there are no deletion vectors to
+read. Compacting the delta is safe (append-only, no deletions); the base is
+never rewritten, so history does not depend on keeping old Lance versions.
+Every history read is asserted (101 values) and every list step against a
+merge-on-read oracle. Disable runs: reading the wrong row's delta → red;
+ignoring the delete flag → red (the first fixture's deletes carried
+`a = 0`, which cleared the bit either way, so that disable stayed green;
+deletes now target list members and carry the old value). Not covered:
+records appended after the last index build are scanned unindexed; one
+value column only (several properties = one column each, P-CUSTOM-1); the
+delta grows without bound until a policy folds it into a new base.
+
 ## Probe P-FLOW-1 (plan H-ADR-7)
 
 `probes/p-flow-1`. Command:
