@@ -606,6 +606,87 @@ HubSPO-rs consumes spear's activity table rather than defining a second.
   lesson: excluded crates rot).
 - Worker agents never run cargo; the orchestrator builds once.
 
+### H-ADR-15 — Kafka-shaped log outside, zero-copy mask algebra inside (checked 2026-10-10)
+
+Question (operator, 2026-10-10): can HubSPO-rs speak a Kafka-inspired wire
+format externally and use the zero-copy masking algebra internally, in
+line with the other session's stack (rs-graph-llm as the LangGraph-shaped
+orchestrator, Rig as the LangChain-shaped model layer, z8run as the
+n8n-shaped flow tool, all Quack / DuckDB-shaped)?
+
+**Verdict: yes, with five conditions.** The two halves meet cleanly
+because Kafka's semantics are already the shape of a Lance dataset:
+
+| Kafka | here |
+|---|---|
+| topic | one dataset per tenant × object type (§5.5) |
+| partition, total order | one writer per dataset (H-ADR-7, one-writer-per-mailbox) |
+| offset | `LanceVersion` (`u64`, monotonic per dataset) |
+| record key | the 16-byte `NodeGuid` |
+| compacted topic (latest value per key) | the dataset at HEAD |
+| full log, replay from an offset | the version history, read with `TemporalPov::at` / `VersionRange` |
+| retention | the Lance version cleanup policy |
+| consumer group offset | a stored `(consumer, last_version)` row |
+| idempotent producer | `ActionInvocation::idempotency_key` |
+
+**Inside (verified in code).**
+- mask-risc evaluates over borrowed `LaneRef::{I32, U32, U64}` slices and
+  `Strided` views straight into 512-byte `NodeRow` bytes, and never
+  allocates (`lance-graph-mask-risc/src/ir.rs:16`, `lib.rs` A1). An Arrow
+  array read from Lance can be handed over as `values()` with no copy.
+- Sums widen `i32` to `i64` (`Terminal::MaskedSumI32`); `EqU32Via` /
+  `GroupSumViaI32` give one-hop foreign-key filters and rollups — the
+  association filters (D-QRY-5) and rollup properties (D-ACT-4) inside
+  the algebra.
+- The other session's `graph-flow-lance` (rs-graph-llm branch
+  `claude/graph-flow-lance`) keeps only a generation-checked handle in a
+  graph-flow `Context`; a LangGraph `Send` is an axis over a mask set,
+  and the model sees only the materialized export. HubSPO-rs workflows
+  (D-FLOW-*) and copilot surfaces (D-INT-7) adopt that seam instead of a
+  second one.
+
+**Outside (designed here; nothing exists yet).** The log record body is
+the frame the UI already receives: `ogar-a2ui-frame::NodeDelta { key,
+mask_words, values }` — the changed fields as a `WideFieldMask`, their
+LE bytes, nothing else. One wire for screens, integrations, z8run flows
+and webhooks. A batch header `(topic, base_offset, record_count)` wraps
+it. The payload is RBAC-projected per consumer before framing (mask AND
+with the consumer's role mask), so an unauthorised field is absent, never
+filtered client-side. A real Kafka cluster is an optional edge: the
+action daemon's `Transport` trait already reserves a `rdkafka` edge
+(`graph-flow-action-ogar/src/daemon.rs`), and the same records can be
+produced to a topic. Zone 3 only (`hubspo-server`, `hubspo-compat`).
+
+**Conditions.**
+1. **One copy at the report seam.** `lance-graph-report::AbiBatch` owns
+   its lanes as `Arc<[i32]>` / `Arc<[u32]>` / `Arc<[u64]>`
+   (`batch.rs:26`), so publishing a Lance version into it copies each lane
+   once. graph-flow-lance and z8run-lance inherit this. Direct Quack /
+   mask-risc calls do not. Upstream ask: a borrowed or Arrow-buffer-backed
+   `LaneData` variant (STOP rule — not built here).
+2. **Generation width.** `AbiBatch::generation` is `u32`; `LanceVersion`
+   is `u64`. Mapping a version to a generation must fail closed past
+   `u32::MAX`, or the seam widens upstream.
+3. **The realtime watcher is always-latest.** `LanceVersionWatcher` skips
+   stale revisions (`version_watcher.rs` header), so it is a wake-up,
+   not the log. Consumers catch up by reading the version range from
+   their stored offset.
+4. **Change records come from the data, not the audit witness.** The
+   audit record is examined in place and never egresses (MedCare-rs
+   commitment #7, lance-graph doctrine). Which rows and fields changed
+   between two versions must be derivable from the datasets themselves.
+   Probe P-LOG-1 measures whether Lance's row-version tracking gives that
+   directly; the fallback is diffing the touched fragments.
+5. **Lane types are `i32`, `u32`, `u64`.** Money is two `i32` lanes (whole
+   units, minor units), summed separately and combined; timestamps are
+   `i32` seconds against a fixed epoch or a day + second pair; strings are
+   `u32` dictionary ids, hydrated last.
+
+New deliverables: D-LOG-1 log record + batch header encoding (zone 3);
+D-LOG-2 consumer offsets and replay over version ranges; D-LOG-3
+optional `rdkafka` edge; probe P-LOG-1. Upstream asks for conditions 1
+and 2 are tracked in `.claude/board/ISSUES.md`.
+
 ---
 
 ## §4 Target crate layout
@@ -917,6 +998,7 @@ with identical responses modulo ids/timestamps.
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
 | P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan |
+| P-LOG-1 | changed rows and fields between two Lance versions, from the datasets alone | derivable without the audit record; cost proportional to changed rows, not dataset size |
 
 Thresholds are policy pins; each is replaced by a measured value with
 its command in `.claude/board/` when run. A probe that fails stops the
