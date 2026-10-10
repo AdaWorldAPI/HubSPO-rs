@@ -49,6 +49,42 @@
 - CI: `.github/workflows/ci.yml` runs fmt, clippy (`--no-deps -D warnings`)
   and `cargo test --workspace` with debug info off.
 
+## Filter compiler (D-QRY-1)
+
+- `hubspo-store::catalog`: the production `Registrar` + `Binder` for Quack.
+  One `Codebook` per coded field (label `i` → code `i`, unknown labels bind
+  to nothing), plane `0` of every table is its live plane, nullable fields
+  name a validity plane. Refuses duplicate fields / lanes / labels, a
+  codebook on an integer field, and live-as-validity. 4 unit tests.
+- `hubspo-query::filter::compile(object, groups, &binder) -> Filter`:
+  HubSpot filter groups (AND within, OR across), operators EQ NEQ LT LTE GT
+  GTE BETWEEN IN NOT_IN HAS_PROPERTY NOT_HAS_PROPERTY; CONTAINS_TOKEN is
+  refused (text search is the Tantivy index). Values are HubSpot strings;
+  integers are decimal `i32` until D-ONT-6 fixes lane encodings (amounts,
+  timestamps). Three-valued over nullable properties: a record with no
+  value is kept by no comparison, NEQ and NOT_IN included — whether HubSpot
+  agrees is a value-oracle question (`ISS-ORACLE-PORTAL`).
+- `tests/filter_oracle.rs`: 600 random filter-group sets over 5,000
+  records (3 % deleted, 20–30 % missing values with random payloads left in
+  the lanes) are compiled, lowered and run on mask-risc; every kept-row set
+  equals a plain-loop reading (456 non-trivial, 122 empty, 22 all live).
+  Disable runs 2026-10-10 (`cargo test -p hubspo-query --test filter_oracle`):
+
+  | disable | red |
+  |---|---|
+  | `sql_where` dropped | oracle + missing-value test |
+  | NOT_IN compiled as IN | oracle |
+  | BETWEEN upper bound exclusive | oracle |
+  | groups ANDed instead of ORed | oracle |
+  | live plane dropped | oracle + presence test |
+  | NOT_HAS_PROPERTY on a required property true | oracle + presence test |
+
+  A seventh guard (`reads_value`, keeping presence-only properties off the
+  nullable list) stayed green and was deleted: `sql_where` gates only
+  comparison leaves, so it guarded nothing.
+- Quack became consumable by git with lance-graph #1457
+  (`ISS-LG-MASKRISC-PATH-NDARRAY`, resolved).
+
 ## Harvest (D-ONT-1, public-catalog half)
 
 - `scripts/fetch-hubspot-specs.sh` → `.cache/` (gitignored), then

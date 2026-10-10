@@ -27,7 +27,7 @@
 | D-ONT-2 | OGAR: `ogar-from-schema` OpenAPI front end (queued upstream, `lib.rs:48`) — **requested from OGAR, not built in HubSPO-rs** | L | Queued |  |
 | D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | Shipped | ratified v3 `.claude/plans/hubspo-concept-mint-dossier-v3.md` (5+3 council, 2026-10-10) |
 | D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x05XX`), 15 concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, layout doc row; lance-graph `ogar_codebook` mirror rows + `AppPrefix` 0x0008–0x000B. `crm_actions` deferred to D-ACT-1 (dossier v3 §7) | M | Shipped | OGAR#330, lance-graph#1438 |
-| D-ONT-5 | `hubspo-port`: `RbacPlug` binding; `HotPlug` over Crm ids asserted to fail `NoCapabilitiesFor` until D-ACT-1 (dossier v3 §7); deliberately-wrong-plug test proving each drift arm can fire | S | In PR | `hubspo-port`, 13 tests |
+| D-ONT-5 | `hubspo-port`: `RbacPlug` binding; `HotPlug` over Crm ids asserted to fail `NoCapabilitiesFor` until D-ACT-1 (dossier v3 §7); deliberately-wrong-plug test proving each drift arm can fire | S | Shipped | `hubspo-port`, 13 tests (`04edf87` on main) |
 | D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | Queued |  |
 | D-ONT-7 | Custom-object/-property design (H-ADR-3) + probe P-CUSTOM-1 (lane-per-property vs packed run; fold latency at 50 / 500 / 2,000 custom properties) | M | In progress | P-CUSTOM-1 2026-10-10: lanes 0.73–1.61× std, packed 15–35×; lane write 33–96 s vs 1.5 s |
 
@@ -46,7 +46,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Queued | P-QDB-1: catalog + codebook `Binder` and nine bound programs proven against an oracle |
+| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | In PR | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Queued | P-LIST-1 2026-10-10: 2.6 ms at 10M; alloc ∝ fragments touched. P-SPARSE-1: 1.93 ms, 257 KiB flat at 10M |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | Queued |  |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |

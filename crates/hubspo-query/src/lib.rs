@@ -4,5 +4,8 @@
 //!
 //! - Zone: zone 2 (no serde, no wire formats).
 //! - Deliverables: D-QRY-1..7 (`.claude/plans/hubspo-integration-v1.md`).
-//! - First real code lands in wave W3. Until then this crate is empty on
-//!   purpose; Wave 0 only fixes the workspace shape.
+//! - [`filter`] (D-QRY-1): HubSpot filter groups → one Quack [`Filter`].
+//!
+//! [`Filter`]: lance_graph_quack::Filter
+
+pub mod filter;

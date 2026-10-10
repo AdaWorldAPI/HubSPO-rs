@@ -10,3 +10,10 @@ publish = false
 
 [lints]
 workspace = true
+
+[dependencies]
+lance-graph-quack.workspace = true
+
+[dev-dependencies]
+hubspo-store = { path = "../hubspo-store" }
+lance-graph-mask-risc.workspace = true

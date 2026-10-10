@@ -3,6 +3,12 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LG-MASKRISC-PATH-NDARRAY — Quack could not be consumed by git
+
+- **Status:** RESOLVED 2026-10-10 by lance-graph #1457 (`e724d83`): mask-risc names ndarray by git, and lance-graph's workspaces patch it back to the sibling checkout.
+- **Where:** lance-graph `crates/lance-graph-mask-risc/Cargo.toml` (`ndarray = { path = "../../../ndarray" }`).
+- **What:** the relative path leaves the lance-graph checkout, so any git consumer of `lance-graph-quack` (which depends on mask-risc) fails with "no matching package named `ndarray`". It also breaks lance-graph's own CARGO-COMPUTE-SUBSTRATE rule 5. Fix upstream: mask-risc names `ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }`, and lance-graph's root adds `[patch."https://github.com/AdaWorldAPI/ndarray"] ndarray = { path = "../ndarray" }`, so its own builds keep the sibling checkout and one ndarray identity. Verified locally: HubSPO-rs builds and tests against the patched checkout with one ndarray package.
+
 ## ISS-DIRSIM-HUBSPO-GAPS — dir-sim lacks what tickets, mail and documents need
 
 - **Status:** OPEN (upstream asks; not built here — STOP rule)
