@@ -15,3 +15,17 @@ workspace = true
 lance-graph-quack.workspace = true
 lance-graph-mask-risc.workspace = true
 lance-graph-contract.workspace = true
+
+# One Lance version per published batch (D-STO-1, persistence half). Off by
+# default: lance needs `protoc` to build, and only the `store-lance` CI job
+# installs it.
+lance = { workspace = true, optional = true }
+arrow = { workspace = true, optional = true }
+futures = { version = "0.3", optional = true }
+
+[features]
+lance = ["dep:lance", "dep:arrow", "dep:futures"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"

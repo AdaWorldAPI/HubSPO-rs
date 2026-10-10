@@ -8,6 +8,10 @@
 //!   through (H-ADR-6).
 //! - [`table`] (D-STO-1, resident half): one dataset's resident lanes, changed
 //!   only by whole owner-stamped batches, one version each.
+//! - [`log`] (D-STO-1, persistence half, feature `lance`): every batch is one
+//!   Lance version of an append-only log; a table is rebuilt by replay.
 
 pub mod catalog;
+#[cfg(feature = "lance")]
+pub mod log;
 pub mod table;

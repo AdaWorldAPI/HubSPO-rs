@@ -291,6 +291,12 @@ fn refused_batches_change_nothing() {
         assert_eq!(t.version(), 2, "{err:?} moved the version");
         assert_matches(&t, &model, &last);
     }
+    // A batch that changes nothing is not a version.
+    assert_eq!(
+        t.apply(&base(Batch::default())),
+        Err(StoreError::EmptyBatch)
+    );
+    assert_eq!(t.version(), 2);
     // Two updates of different lanes of one row are fine.
     assert!(
         t.apply(&base(Batch {
