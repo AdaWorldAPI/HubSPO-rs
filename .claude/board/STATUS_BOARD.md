@@ -35,7 +35,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | In progress | resident half in PR: `hubspo-store::table` (owner-stamped atomic batches, one version each, `changed` plane); Lance persistence next |
+| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | In PR | resident half shipped (#22); persistence half in PR: `hubspo-store::log` (one Lance version per batch, replay, feature `lance`) |
 | D-STO-2 | KV value store for variable-length properties; zero-copy lens reads | M | Queued |  |
 | D-STO-3 | Edge lanes + association labels (H-ADR-4); cardinality invariants as Quack `GroupReduce` | L | Queued |  |
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | Queued | P-TEN-1 passed 2026-10-10 (7.8 ms p99 at 10k tenants, local disk) |

@@ -39,3 +39,23 @@ jobs:
       # identity shapes (Gate G0).
       - name: Test
         run: cargo test --workspace
+
+  # hubspo-store's Lance log (feature `lance`) needs `protoc` to build
+  # lance-encoding, so it runs in its own job and the default job stays fast.
+  store-lance:
+    name: hubspo-store (lance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Clippy
+        run: cargo clippy -p hubspo-store --features lance --all-targets --no-deps -- -D warnings
+
+      - name: Test
+        run: cargo test -p hubspo-store --features lance

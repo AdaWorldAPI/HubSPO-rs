@@ -113,6 +113,32 @@
 - Not yet: persistence (one Lance version per published batch, P-SPARSE-1
   base + delta) — the next half of D-STO-1.
 
+## Store, persistence half (D-STO-1, feature `lance`)
+
+- `hubspo-store::log::Log`: every batch is one Lance version of an
+  append-only log (P-SPARSE-1's delta shape; nothing updated in place).
+  Records: `BORN` (row), `SET` (row, lane, present, value as the lane's 32
+  bits), `DELETE` (row), each stamped with version and owner.
+- `commit(table, batch)`: check → append one Lance version → apply. Lance
+  version = table version; the log's version is checked before the append
+  (and after it). A refused batch writes nothing; an empty batch is
+  refused (`StoreError::EmptyBatch`).
+- `replay(owner, specs)`: rebuilds the table batch by batch through the
+  same `Table::apply`; refuses a foreign owner, an undecodable record, and
+  a log whose Lance version is not its batch count.
+- Tests (`cargo test -p hubspo-store --features lance`, CI job
+  `store-lance`, which installs `protoc`): 25 committed batches replay to
+  an identical image (deletes and negative values included); one Lance
+  version per batch; a second, stale writer is refused before it applies
+  anything; refused and empty batches leave the log at its version;
+  replay under another owner is refused.
+  Disable runs 2026-10-10, red: no pre-append version check, owner ignored
+  on replay, the I32 sign bit lost, deletes not logged, apply before the
+  append. Green, and kept on purpose: the post-append version check — it
+  catches only a writer that appends between the check and the write, a
+  race no sequential test can schedule.
+- Not yet: folding the log into a base dataset (D-STO-5), object stores.
+
 ## Board view (D-QRY-3, board half)
 
 - `hubspo-query::board::Board`: per (pipeline, stage), record count and

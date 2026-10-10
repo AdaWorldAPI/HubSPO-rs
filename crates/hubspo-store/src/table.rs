@@ -97,6 +97,9 @@ pub enum StoreError {
     Full,
     /// More lanes than a `Col` can address.
     TooManyLanes,
+    /// A batch with no inserts, updates or deletes: it would be a version
+    /// that changes nothing.
+    EmptyBatch,
 }
 
 /// What one applied batch did.
@@ -205,6 +208,11 @@ impl Table {
         u16::try_from(plane).ok().map(Mask)
     }
 
+    /// The lane declarations, in lane order.
+    pub fn specs(&self) -> &[LaneSpec] {
+        &self.specs
+    }
+
     /// Whether `row` is live.
     pub fn is_live(&self, row: u32) -> bool {
         (row as usize) < self.n_rows && get(&self.planes[0], row as usize)
@@ -237,12 +245,22 @@ impl Table {
         }
     }
 
-    fn check(&self, batch: &Batch) -> Result<(), StoreError> {
+    /// Whether [`Table::apply`] would accept `batch`, without changing
+    /// anything. A writer that persists first checks, then persists, then
+    /// applies (`log::Log::commit`).
+    ///
+    /// # Errors
+    ///
+    /// The [`StoreError`] `apply` would return.
+    pub fn check(&self, batch: &Batch) -> Result<(), StoreError> {
         if batch.owner != self.owner {
             return Err(StoreError::OwnerMismatch {
                 table: self.owner,
                 batch: batch.owner,
             });
+        }
+        if batch.inserts.is_empty() && batch.updates.is_empty() && batch.deletes.is_empty() {
+            return Err(StoreError::EmptyBatch);
         }
         if self
             .n_rows
