@@ -51,22 +51,8 @@ async fn main() {
         VERSIONS + 1,
         started.elapsed().as_secs_f64()
     );
+    // One fragment per version: the log is never compacted.
     measure(&log, uri.to_str().expect("utf8"), "fragmented").await;
-    // The same log after compacting its fragments. `history` reads the
-    // `version` column, not the Lance version, so it stays correct; `commit`
-    // would refuse the compacted log (its Lance version moved).
-    let mut ds = lance::Dataset::open(uri.to_str().expect("utf8"))
-        .await
-        .expect("open");
-    let before = ds.get_fragments().len();
-    lance::dataset::optimize::compact_files(&mut ds, Default::default(), None)
-        .await
-        .expect("compact");
-    println!(
-        "compacted {before} fragments into {}",
-        ds.get_fragments().len()
-    );
-    measure(&log, uri.to_str().expect("utf8"), "compacted").await;
 }
 
 fn median(mut ms: Vec<f64>) -> (f64, f64, f64) {

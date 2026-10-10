@@ -137,9 +137,8 @@
   append. Green, and kept on purpose: the post-append version check — it
   catches only a writer that appends between the check and the write, a
   race no sequential test can schedule.
-- Not yet: an index on `row`, compaction, object stores. Compaction adds
-  Lance versions, so it needs the table version read from the `version`
-  column instead of the Lance version.
+- Not yet: an index on `row`, object stores. The log is never compacted
+  (decision 2026-10-10): the append order is the version order.
 
 ## Property history (D-STO-5, feature `lance`)
 
@@ -154,9 +153,11 @@
   history equals one written down from the batches (anti-vacuity: updates,
   deletions, negative and absent values); unknown lane refused; empty log
   reads empty. Disable runs 2026-10-10, red: drop the row term, drop the
-  DELETE arm, drop `op = SET`, lose the I32 sign. Green, kept: the sort by
-  version (Lance's default scan is already in append order).
-- Timing: fragmented log (1,001 fragments, 1.2M records): **336 ms**, of which the raw scan is 320 ms; compacted to one fragment: **57 ms** (scan 54 ms). Fails P-HIST-1's < 20 ms either way; the Quack program is 3–15 ms of it (release, `examples/probe_history.rs`, 7 reads, 2026-10-10). The scan, not the program, is the cost. Open: ISS-HIST-SCAN-COST.
+  DELETE arm, drop `op = SET`, lose the I32 sign. A sort by version was
+  inert under a disable run and is removed: append order is version order.
+  Replay dropped its sort too; a log out of order is still refused there,
+  as a batch whose version is not the next one.
+- Timing: fragmented log (1,001 fragments, 1.2M records): **336 ms**, of which the raw scan is 320 ms. Fails P-HIST-1's < 20 ms; the Quack program is 3–15 ms of it (release, `examples/probe_history.rs`, 7 reads, 2026-10-10). The scan, not the program, is the cost. Open: ISS-HIST-SCAN-COST.
 
 ## Board view (D-QRY-3, board half)
 

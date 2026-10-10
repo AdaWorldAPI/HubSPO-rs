@@ -7,11 +7,11 @@
 
 - **Status:** OPEN (D-STO-5 budget; correctness shipped)
 - **Where:** `hubspo-store::log::Log::history`.
-- **What:** history reads every log record and runs the Quack program over them. Measured 2026-10-10 (`examples/probe_history.rs`, release, 100k records, 1,000 versions × 1,000 updates, 1.2M log records): 336 ms with one fragment per version, 320 ms of it the raw scan; 57 ms after compacting to one fragment, 54 ms of it the scan. P-HIST-1's budget is < 20 ms. The program is not the cost.
-- **Levers, in order:**
-  1. Compaction (6× here). It adds Lance versions, so `commit`'s check "Lance version = table version" must change first: take the table version from the log's `version` column (or record the Lance version a table version maps to), and refuse a second writer by that instead.
-  2. Read only `row`, `lane`, `op` for the program and fetch the other columns for the matches by position.
-  3. An index on `row`. P-SPARSE-1 measured 3.3–5.9 ms compacted with Lance's BTree. Using it takes a Lance filter expression, which runs Lance's internal DataFusion; whether that sits within iron rule 5 (no `datafusion*` dependency, queries are Quack) is an operator decision. The plan's alternative (§5.2) is our own change index — positions per record, an index, not a second truth.
+- **What:** history reads every log record and runs the Quack program over them. Measured 2026-10-10 (`examples/probe_history.rs`, release, 100k records, 1,000 versions × 1,000 updates, 1.2M log records, one fragment per version): 336 ms, 320 ms of it the raw scan. P-HIST-1's budget is < 20 ms. The program is not the cost.
+- **Not a lever:** compaction. DECISION 2026-10-10 (operator): the log is never compacted, because the append order gives version order for free. (A one-off measurement compacted to one fragment read in 57 ms, still over budget.)
+- **Levers:**
+  1. Read only `row`, `lane`, `op` for the program and fetch the other columns for the matches by position.
+  2. An index on `row`. P-SPARSE-1 measured 16.9 ms with Lance's BTree on an uncompacted log of 1,000 fragments, inside the budget. Using it takes a Lance filter expression, which runs Lance's internal DataFusion; whether that sits within iron rule 5 (no `datafusion*` dependency, queries are Quack) is an operator decision. The plan's alternative (§5.2) is our own change index — positions per record, an index, not a second truth.
 
 ## ISS-LG-MASKRISC-PATH-NDARRAY — Quack could not be consumed by git
 

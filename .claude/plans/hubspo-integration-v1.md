@@ -859,6 +859,11 @@ Writing the 1,000 versions takes 6.6–12.4 s instead of ~300 s. The delta
 is append-only, so compacting it loses no history; the base is never
 rewritten, so nothing depends on keeping old Lance versions.
 
+*Decision 2026-10-10:* the log is never compacted. The append order gives
+version order for free, and readers (history, replay) rely on it instead of
+sorting. History speed comes from reading fewer columns or an index on
+`row` (ISS-HIST-SCAN-COST), not from compaction.
+
 ### 5.3 Timeline
 
 The record timeline is spear's `activity` table (D-HUB-4) joined on

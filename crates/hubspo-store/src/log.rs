@@ -2,7 +2,8 @@
 //! append-only log, and a table is rebuilt by replaying it.
 //!
 //! The shape is P-SPARSE-1's delta: nothing is ever updated in place, so
-//! there are no deletion vectors to read and the log is safe to compact.
+//! there are no deletion vectors to read. It is never compacted: the
+//! append order is the version order, and readers rely on it.
 //! Each record is one fact of one batch:
 //!
 //! | `op` | meaning | `row` | `lane` | `present` / `value` |
@@ -29,9 +30,7 @@
 //! **History (D-STO-5)** is the log itself: [`Log::history`] reads one
 //! property of one record back as the list of writes that touched it.
 //!
-//! Not yet: an index on `row`, compaction (which would add Lance versions
-//! and so needs the table version taken from the `version` column rather
-//! than from the Lance version), and object-store URIs beyond what `lance`
+//! Not yet: an index on `row`, and object-store URIs beyond what `lance`
 //! resolves by itself.
 
 use std::sync::Arc;
@@ -368,11 +367,8 @@ impl Log {
                 });
             }
         }
-        // Lance's default scan already yields fragments in append order, so a
-        // disable run of this sort stays green; it is kept so the result
-        // stays ordered if the scan is ever made unordered or parallel.
-        // Stable: within one version the written order is kept.
-        entries.sort_by_key(|e| e.version);
+        // No sort: the scan yields records in append order, which is version
+        // order and, within a version, written order.
         Ok(entries)
     }
 
@@ -414,8 +410,9 @@ impl Log {
                 ));
             }
         }
-        // Stable sort by version keeps each batch's facts in written order.
-        facts.sort_by_key(|f| f.0);
+        // No sort: records come back in append order, so each batch's facts
+        // are contiguous and in written order. A log out of order is caught
+        // below, as a batch whose version is not the next one.
         let mut i = 0;
         while i < facts.len() {
             let version = facts[i].0;
