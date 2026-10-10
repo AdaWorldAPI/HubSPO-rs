@@ -856,6 +856,11 @@ it reaches the wire.
   and deletion story: a tenant deletion is dropping datasets, GDPR-clean).
   Probe P-TEN-1 checks the per-dataset overhead at 10k tenants; fallback
   is a tenant column with partitioned fragments.
+  *Measured 2026-10-10 (P-TEN-1, board LATEST_STATE):* open + first read
+  at 10k tenants is 7.8 ms p99 with a fresh session per open and 5.0 ms
+  p99 with one shared session, page cache dropped — well inside 50 ms on
+  local disk. Not covered: object storage latency and tenants with many
+  versions/fragments.
 
 ---
 
@@ -1066,7 +1071,7 @@ with identical responses modulo ids/timestamps.
 | Probe | Question | Pass criterion (pre-registered) |
 |---|---|---|
 | P-CUSTOM-1 | custom property layout | fold over 500 custom properties × 1M rows within 2× of a standard property fold — **lanes pass (1.61× at 500), packed fails (18×)**, 2026-10-10 |
-| P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 |
+| P-TEN-1 | dataset per tenant×type overhead | open + first read at 10k tenants < 50 ms p99 — **passes: 7.8 ms fresh / 5.0 ms shared session, local disk**, 2026-10-10 |
 | P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10 |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
