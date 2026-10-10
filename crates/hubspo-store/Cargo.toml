@@ -13,3 +13,5 @@ workspace = true
 
 [dependencies]
 lance-graph-quack.workspace = true
+lance-graph-mask-risc.workspace = true
+lance-graph-contract.workspace = true

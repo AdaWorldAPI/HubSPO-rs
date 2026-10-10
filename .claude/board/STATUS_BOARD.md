@@ -35,7 +35,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | Queued |  |
+| D-STO-1 | `hubspo-store` write lane: batch image → one Lance version per publish; owner-stamped (`mailbox_owner`) | L | In progress | resident half in PR: `hubspo-store::table` (owner-stamped atomic batches, one version each, `changed` plane); Lance persistence next |
 | D-STO-2 | KV value store for variable-length properties; zero-copy lens reads | M | Queued |  |
 | D-STO-3 | Edge lanes + association labels (H-ADR-4); cardinality invariants as Quack `GroupReduce` | L | Queued |  |
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | Queued | P-TEN-1 passed 2026-10-10 (7.8 ms p99 at 10k tenants, local disk) |
@@ -48,7 +48,7 @@
 |---|---|---|---|---|
 | D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Shipped | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Shipped | `hubspo-query::list` (refresh, static add/remove/members, added/removed); tests vs full recomputation. P-LIST-1 2.6 ms at 10M; P-SPARSE-1 1.93 ms, 257 KiB flat at 10M. Storage of list masks lands with D-STO-1 |
-| D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | In progress | board half in PR: `hubspo-query::board` (count + amount per stage as two `GroupReduce` programs); saved views + sorting open |
+| D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | In progress | board half shipped (#21): `hubspo-query::board` (count + amount per stage as two `GroupReduce` programs); saved views + sorting open |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
 | D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued |  |
 | D-QRY-6 | Reports: single-object, cross-object, funnel, time-series, attribution skeleton on `lance-graph-report` | XL | Queued |  |

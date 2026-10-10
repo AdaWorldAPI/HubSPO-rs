@@ -4,7 +4,10 @@
 //!
 //! - Zone: zone 2 (no serde, no wire formats).
 //! - Deliverables: D-STO-1..6 (`.claude/plans/hubspo-integration-v1.md`).
-//! - First module: [`catalog`], the table and field catalog every Quack read
-//!   binds through (H-ADR-6). Storage lands with D-STO-1.
+//! - [`catalog`]: the table and field catalog every Quack read binds
+//!   through (H-ADR-6).
+//! - [`table`] (D-STO-1, resident half): one dataset's resident lanes, changed
+//!   only by whole owner-stamped batches, one version each.
 
 pub mod catalog;
+pub mod table;
