@@ -1,0 +1,6 @@
+[toolchain]
+# Matches lance-graph, OGAR, ndarray and spear. `rust-version` in Cargo.toml
+# moves with this line.
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

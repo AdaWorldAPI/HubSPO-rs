@@ -9,11 +9,17 @@
 - 18 crates, edition 2024, toolchain 1.99.0 (`rust-toolchain.toml`; bumped with the fleet 2026-10-10).
 - 17 of them are empty on purpose: the crate layout from plan §4, with a
   module doc naming each crate's zone and deliverables.
-- `hubspo-port` depends on `lance-graph-contract` (feature `guid-v3-tail`)
-  and `ogar-vocab`, both on `branch = "main"`, and re-exports `HotPlug` and
-  `PortSpec`. It holds no codebook and no prefix constant: `HubSpoPort`
-  (`0x000B`) is on OGAR `main` since #330 (D-ONT-4); the port crate does
-  not read it yet (D-ONT-5).
+- `hubspo-port` (D-ONT-5): `RBAC_PLUG` over the 15 CRM concepts + the 7
+  core concepts HubSpot objects converge on; `bind()` resolves it against
+  `OgarRbac` (minted in `ogar-vocab`, agrees with the contract mirror). No
+  roles until D-IAM-1. `HOT_PLUG` over the CRM concepts is pinned to
+  `NoCapabilitiesFor(crm_contact)` until D-ACT-1. `class_id` /
+  `render_class_id` resolve HubSpot names through `HubSpoPort`. 13 tests.
+  Disable runs 2026-10-10: dropping a CRM id (2 tests red), dropping an
+  alias target (1 red), a `bind()` that skips the authority (2 red).
+  **Known non-binding:** a stray `COVERED_CAPABILITIES` entry is not
+  caught yet — `resolve_hotplug` stops at `NoCapabilitiesFor` before the
+  coverage check; OGAR's `Undeclared` arm catches it once D-ACT-1 lands.
 - `hubspo-guards` enforces Gate G0 as tests (rules in its `lib.rs` header).
   9 unit tests (each rule can fire and can stay silent) + 1 workspace scan.
   All six disable runs measured red on 2026-10-10:

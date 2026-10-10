@@ -4,3 +4,4 @@
 Cargo.lock
 # Fetched external data (scripts/fetch-hubspot-specs.sh); never committed.
 /.cache
+/probes/*/target
