@@ -5,7 +5,10 @@
 //! - Zone: zone 2 (no serde, no wire formats).
 //! - Deliverables: D-QRY-1..7 (`.claude/plans/hubspo-integration-v1.md`).
 //! - [`filter`] (D-QRY-1): HubSpot filter groups → one Quack [`Filter`].
+//! - [`list`] (D-QRY-2): active / static lists and membership history as
+//!   mask programs.
 //!
 //! [`Filter`]: lance_graph_quack::Filter
 
 pub mod filter;
+pub mod list;
