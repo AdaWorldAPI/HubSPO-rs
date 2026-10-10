@@ -7,8 +7,11 @@
 //! - [`filter`] (D-QRY-1): HubSpot filter groups → one Quack [`Filter`].
 //! - [`list`] (D-QRY-2): active / static lists and membership history as
 //!   mask programs.
+//! - [`board`] (D-QRY-3, board half): count and amount per pipeline stage
+//!   as two grouped programs.
 //!
 //! [`Filter`]: lance_graph_quack::Filter
 
+pub mod board;
 pub mod filter;
 pub mod list;
