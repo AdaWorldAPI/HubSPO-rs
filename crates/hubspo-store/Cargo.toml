@@ -29,3 +29,7 @@ lance = ["dep:lance", "dep:arrow", "dep:futures"]
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tempfile = "3"
+
+[[example]]
+name = "probe_history"
+required-features = ["lance"]

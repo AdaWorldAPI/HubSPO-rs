@@ -368,6 +368,9 @@ impl Log {
                 });
             }
         }
+        // Lance's default scan already yields fragments in append order, so a
+        // disable run of this sort stays green; it is kept so the result
+        // stays ordered if the scan is ever made unordered or parallel.
         // Stable: within one version the written order is kept.
         entries.sort_by_key(|e| e.version);
         Ok(entries)
