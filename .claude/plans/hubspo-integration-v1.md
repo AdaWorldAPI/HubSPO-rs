@@ -1080,7 +1080,7 @@ with identical responses modulo ids/timestamps.
 | P-HIST-1 | property history from version log | one property, one record, 1,000 versions < 20 ms — **fails, 2026-10-10: best 46 ms (address index, 101 changes, flat in N); version-log reads 3–147 s** |
 | P-LIST-1 | active list incremental re-eval | delta of 1k changed rows on 10M population < 10 ms; allocation independent of population — **time passes (2.6 ms at 10M); allocation grows with fragments touched (~200 KiB each), not rows**, 2026-10-10 |
 | P-DEDUP-1 | blocking recall | ≥ 99% of labelled duplicates share a block |
-| P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows |
+| P-FLOW-1 | enrolment latency | version publish → enrolled < 1 s p99 at 1k workflows — **passes: 27 ms p99 (1M contacts, 200 versions)**, 2026-10-10 |
 | P-AUTH-1 | RBAC overhead on reads | < 10% vs unauthorised scan — **passes with a word-wise scope mask (≤ 4.3 % kernel delta); per-row owner check fails (+43–49 %)**, 2026-10-10 |
 | P-LOG-1 | changed rows and fields between two Lance versions, from the datasets alone | derivable without the audit record; cost proportional to changed rows, not dataset size — **passed by fragment diff (1.4 ms flat to 16M); `delta()` fails (scan)**, 2026-10-10 |
 

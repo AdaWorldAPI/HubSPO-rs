@@ -86,6 +86,31 @@ with fragment count, not N (39 ms at 16M). Disable run: scanning every
 fragment instead of only the added ones → assertion red (99,750 "updates").
 Not probed: compaction (`Rewrite`) versions between the two offsets.
 
+## Probe P-FLOW-1 (plan H-ADR-7)
+
+`probes/p-flow-1`. Command:
+`CARGO_TARGET_DIR=target/probes cargo build --release --manifest-path probes/p-flow-1/Cargo.toml && target/probes/release/p-flow-1 1000000 200`.
+1M contacts `(id, stage, score, region)`, stable row ids; 1,000 workflows,
+each triggering on `stage == s AND score >= t AND region == r`. Per trial a
+writer commits 1,000 updates as one version; the consumer then opens the
+latest version, fragment-diffs from its stored offset (P-LOG-1), evaluates
+all 1,000 criteria over the changed rows, appends the enrolments as one
+Lance version and advances its offset. Every trial's enrolments are
+asserted against the generator. Measured 2026-10-10:
+
+| contacts | trials | p50 ms | p99 ms | max ms | enrolments / version | fragments at end |
+|---|---|---|---|---|---|---|
+| 1M | 50 | 11.20 | 19.44 | 19.44 | 2,326 | 51 |
+| 1M | 200 | 13.82 | 27.13 | 31.10 | 2,445 | 201 |
+
+Verdict: **passes** (budget 1 s p99), with ~35× headroom. The time grows
+mildly with fragment count (each catch-up loads two manifests). Not in
+the measurement: starting the graph-flow runs (an enrolment here is a
+row), the version watcher's own wake-up latency, and re-enrolment rules.
+The criteria are a plain loop (1,000 × 1,000 evaluations per version)
+standing in for Quack programs. Disable run: `>=` → `>` in the criteria
+→ assertion red at trial 0; restored green.
+
 ## Probe P-AUTH-1 (plan H-ADR-9)
 
 `probes/p-auth-1`. Command:
