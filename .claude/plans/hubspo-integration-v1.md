@@ -602,6 +602,15 @@ review required for those marked **[OPERATOR]**.
   +3.5 ms on a ~81 ms 10M-row read (≤ 4.3 %); checking each row's owner
   instead costs +43–49 % (it reads the owner column), and a scope under
   5 % of rows should take the masked rows (−81 %), not scan.
+  *Amended 2026-10-11 (D-IAM-2, `hubspo-iam::scope`):* the ownership scope
+  is not a `ScopeSpec`. `ScopeSpec` is address containment (a path prefix);
+  HubSpot decides by who owns a record. `ScopeSpec` keeps the tenant; the
+  ownership scope resolves to an owner set through the dir-sim `View` and
+  compiles to one Quack filter over the owner lane, stored as a mask.
+  Teams are directory groups: a principal's teams are those it is a direct
+  member of, and a team's sub-teams are groups nested in it
+  (`View::members_transitive`), so "my team and below" never reaches a
+  sibling or parent team. This replaces the `Dn128` OU-subtree wording.
 - User provisioning, team moves, seat changes are **directory
   simulations**: observed G0 → rules → desired → validate → diff →
   `ExecutionPlan` (no write until the plan is approved). Same pipeline as
