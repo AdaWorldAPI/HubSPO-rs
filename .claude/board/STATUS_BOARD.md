@@ -28,7 +28,7 @@
 | D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | Shipped | ratified v3 `.claude/plans/hubspo-concept-mint-dossier-v3.md` (5+3 council, 2026-10-10) |
 | D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x05XX`), 15 concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, layout doc row; lance-graph `ogar_codebook` mirror rows + `AppPrefix` 0x0008–0x000B. `crm_actions` deferred to D-ACT-1 (dossier v3 §7) | M | Shipped | OGAR#330, lance-graph#1438 |
 | D-ONT-5 | `hubspo-port`: `RbacPlug` binding; `HotPlug` over Crm ids asserted to fail `NoCapabilitiesFor` until D-ACT-1 (dossier v3 §7); deliberately-wrong-plug test proving each drift arm can fire | S | Shipped | `hubspo-port`, 13 tests (`04edf87` on main) |
-| D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | Queued |  |
+| D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | Blocked | `ISS-CRM-KEY-CLASSVIEW`: no ClassView or key on the `0x000B` prefix until answered (plan H-ADR-1 note) |
 | D-ONT-7 | Custom-object/-property design (H-ADR-3) + probe P-CUSTOM-1 (lane-per-property vs packed run; fold latency at 50 / 500 / 2,000 custom properties) | M | In progress | P-CUSTOM-1 2026-10-10: lanes 0.73–1.61× std, packed 15–35×; the 33–96 s is a fresh K-column `Dataset::write`, not updates. Both measured paths are off the shipped path since #23/#25: re-probe as P-CUSTOM-2 under the resident fold |
 
 ## Wave 2 — Store, versions, history
@@ -85,7 +85,7 @@
 | D-MAIL-1 | stalwart deployment profile (separate service, AGPL stays there); stalwart keeps its own directory; contacts join to mailboxes through spear's placement (OD-12) | M | Queued | re-scoped 2026-10-10 (OD-12) |
 | D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | Queued | wire surface mapped: `.claude/knowledge/comms-api-surface.md` §3 |
 | D-MAIL-3 | One-to-one email send from a record via JMAP `EmailSubmission`; `send_receipts` row | M | Queued |  |
-| D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`) | L | Queued | `ThreadLinker` impl now exists: spear `RootThreads` (#19); consume spear's thread key |
+| D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`) | L | Queued | scope amended 2026-10-11 (plan note under the D-MAIL-4 row): implement `MailParser` only; `ThreadLinker` is spear `RootThreads` (#19) — consume its thread key, build none here |
 | D-MAIL-5 | Shared inbox / conversations: new spear roles (team inbox member, inbox admin) + ownership routing | L | Queued |  |
 | D-MAIL-6 | Meetings: CalDAV / JMAP Calendars, iTIP, booking pages (availability fold over calendars), meeting engagement records | XL | Queued |  |
 | D-MAIL-7 | Contact sync (CardDAV / JMAP Contacts) — two-way, conflict policy via crm-sim | L | Queued |  |
