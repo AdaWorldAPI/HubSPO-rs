@@ -354,6 +354,11 @@ review required for those marked **[OPERATOR]**.
   lane on the record and indexed for the compatibility façade (§H-ADR-11),
   never as identity.
 - Forbids: `id: String`, `HashMap<String, Company>`, a local `CRM_CODEBOOK`.
+- ⊘ **Blocked 2026-10-11 (`ISS-CRM-KEY-CLASSVIEW`):** the `| HUBSPO_APP_PREFIX`
+  half of this layout is superseded by the lance-graph #1464 classid-layout
+  ruling (per-app render prefixes in the classview bits are a fossil). Mint
+  no CRM key, and build no ClassView keyed on `0x000B`, until that issue is
+  answered. The concept half and `mint_for` stand.
 
 ### H-ADR-2 — Ports and concepts: one port, converge first, mint last **[OPERATOR]**
 
@@ -808,6 +813,7 @@ are no hand-written model structs).
 ```
 NodeRow (512 B)
   key   (16)  NodeGuid — classid(4: concept<<16 | 0x000B) + V3 12-byte facet
+              (⊘ low half blocked: ISS-CRM-KEY-CLASSVIEW, see H-ADR-1)
   edge  (16)  content-blind facet cascade (edge_codec_flavor per ClassView)
   value (480) ClassView-carved standard property lanes
               [owner_guid_ref][create_ts][modify_ts][lifecycle_stage_id]
@@ -1028,6 +1034,10 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | D-ONT-6 |
 | D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag. stalwart has none, and `EmailSubmission` returns empty `mdnBlobIds`/`dsnBlobIds` and `displayed: unknown`, so read and delivery receipts come from webhooks only | M | D-MAIL-3 |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | D-ACT-1 |
+
+> D-MAIL-4 amended 2026-10-11: `ThreadLinker` is implemented upstream by
+> spear `RootThreads` (spear #19). D-MAIL-4 consumes spear's thread key and
+> implements only `MailParser`; it builds no local thread key.
 
 **Gate G6:** end-to-end: send from a record → delivered event → timeline
 row → reply arrives → logged and associated, all in one test against a

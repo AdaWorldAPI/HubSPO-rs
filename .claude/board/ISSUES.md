@@ -3,6 +3,18 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LG-DIRSIM-NOT-GIT-CONSUMABLE — dir-sim and cypher-quack cannot be consumed by git
+
+- **Status:** OPEN (found 2026-10-11 by the audit; upstream ask, STOP rule)
+- **Where:** lance-graph `crates/lance-graph-dir-sim/Cargo.toml:27-30` (four non-optional `../../../OGAR/crates/*` paths); `lance-graph-cypher-quack` and `lance-graph-arm-discovery` through `ndarray-simd`; `probes/p-qdb-1` stale paths.
+- **What:** #1457 fixed mask-risc only. Any HubSPO-rs crate that depends on dir-sim (hubspo-iam, hubspo-sim, option (d)) fails to resolve by git. Ask: OGAR by git, as `lance-graph-ogar` did, plus the root-only `[patch]`.
+
+## ISS-CRM-KEY-CLASSVIEW — CRM keys would bake the fossil render prefix `0x000B`
+
+- **Status:** OPEN (found 2026-10-11 by the audit; operator question + upstream ask)
+- **Where:** plan key layout; lance-graph #1464 (`9f5d3dfe`) classid-layout ruling, plan `v3-mandatory-hotplug-reading-v1` rule 5.
+- **What:** per-app render prefixes in the classview bits are a fossil; no new code may depend on `APP_PREFIX` being a classview value. HubSPO-rs has not minted keys yet. The CRM plug gives no row reading until `crm_actions` exists (D-ACT-1). Ask which classview CRM keys carry before D-STO-2 mints any.
+
 ## ISS-LOG-NON-BATCH-VERSION — a non-batch Lance version on the log dataset stops the log
 
 - **Status:** OPEN (found 2026-10-10 by reading lance 13 and `log.rs`; not observed in a run)
@@ -35,7 +47,7 @@
 
 ## ISS-DIRSIM-HUBSPO-GAPS — dir-sim lacks what tickets, mail and documents need
 
-- **Status:** OPEN (upstream asks; not built here — STOP rule)
+- **Status:** OPEN for gaps 1, 2, 3, 6; gap 4 RESOLVED, gap 5 EXCLUDED (audit 2026-10-11 at lance-graph `1116c120`, OGAR `b4f5a36`, spear `0c1b4a2`). Gap 1: still in memory; V16's LDIF/LDAP (lance-graph #1450/#1452/#1453) is export only; asked as lance-graph W-3 / OGAR W-3. Gap 2: inputs landed (lance-graph #1458 `members_transitive`, #1463 `security_identifiers`, OGAR #348 V19) but no `ActorSource` over a `View` anywhere; ask a thin `ViewActors` in lance-graph-dir-sim, "group G grants role R" as RBAC data (OGAR W-2, unanswered). Gap 3: OGAR V17 design only (#344, #347), no code. Gap 4: RESOLVED by lance-graph #1458 + #1461 + #1463 and spear #20 + #21 (`mailbox_members` now calls the upstream closure). Gap 5: EXCLUDED, never a dir-sim concern; D-FLOW-5 builds it here on Quack. Gap 6: OGAR V18 design only; regime 1 (attachment takes its ticket's or deal's access) is HubSPO-rs D-IAM-2/D-IAM-7, not an upstream ask; regime 2 (library ACL) waits on OGAR.
 - **Where:** lance-graph `crates/lance-graph-dir-sim`, OGAR `crates/ogar-dir-sim` (re-checked at lance-graph `a75bcc42`, OGAR `173de21`).
 - **What:** found by the comms API read (`.claude/knowledge/comms-api-surface.md` §2):
   1. no persistence: `VersionStore` is in memory; `ad::project` (lance-graph #1452) writes LDIF for export and diffing only, not as a load format;
@@ -48,19 +60,19 @@
 
 ## ISS-SPEAR-THREAD-AND-STALWART-DOC — spear thread id is null; a spear doc contradicts H-ADR-8
 
-- **Status:** OPEN (spear follow-up)
+- **Status:** RESOLVED 2026-10-10 by spear #19 (`b7d82f4`): `ingest::thread_root_key` writes the thread key on every placed row (first `References` id, else `In-Reply-To`, else `Message-ID`); `RootThreads` implements `ThreadLinker` (feature `contract`); `STALWART_INTEGRATION.md` opens with a supersession note citing H-ADR-8; `directory.rs:47-51` now says the fork's dir-sim directory is neither constructed nor configurable. D-MAIL-4 consumes spear's key.
 - **Where:** spear `src/mail/ingest.rs:192` (`thread_id` written as `FixedSizeBinary::new_null`); spear `docs/STALWART_INTEGRATION.md` (spear as a storage backend linked into stalwart).
 - **What:** D-MAIL-4 needs a thread key; the contract seam is `lance_graph_contract::mail::ThreadLinker` (no impl in tree), and stalwart's `message-ingest.ham` webhook carries no ThreadId, so the key must be computed on our side. The stalwart doc conflicts with H-ADR-8 (stalwart stays a separate AGPL process) and should be marked superseded in spear.
 
 ## ISS-LG-REPORT-OWNED-LANES — the report seam copies each lane once
 
-- **Status:** OPEN (upstream ask; not built here — STOP rule)
+- **Status:** OPEN, dormant (audit 2026-10-11, lance-graph `1116c120`): `LaneData` unchanged. No HubSPO-rs crate depends on `lance-graph-report` yet (the D-QRY-3 board runs on Quack `GroupReduce`), so the second copy bites only when D-QRY-6 / D-ACT-4 publish a resident lane. Asked as handover W-5 (#1454) only, not on lance-graph's board. Minimal ask: an owner-erased `'static` lane (`Arc<dyn AsRef<[T]>>` or `ScalarBuffer<T>`); ask together with ISS-LG-REPORT-GENERATION-WIDTH only if that one stays upstream.
 - **Where:** lance-graph `crates/lance-graph-report/src/batch.rs:26` (`LaneData` holds `Arc<[i32]>` / `Arc<[u32]>` / `Arc<[u64]>`).
 - **What:** publishing a Lance version into an `AbiBatch` copies every lane once, so graph-flow-lance and z8run-lance (both on this seam) are not zero-copy from Lance. mask-risc itself borrows slices and is. Ask: a borrowed or Arrow-buffer-backed `LaneData` variant. Plan H-ADR-15 condition 1.
 
 ## ISS-LG-REPORT-GENERATION-WIDTH — `AbiBatch` generation is u32, Lance versions are u64
 
-- **Status:** OPEN (upstream ask)
+- **Status:** OPEN, reclassified 2026-10-11 from upstream ask to consumer decision: the generation is an equality staleness token (lance-graph `exec.rs:451` → `StaleSource`), so a fail-closed `u32::try_from(version)` (refuse past `u32::MAX`, never `as u32`) is lossless and stable across restarts. Lands with the first report/flow consumer. Also: `Envelope.generation` is z8run-lance's type, re-exported by graph-flow-lance.
 - **Where:** lance-graph `crates/lance-graph-report/src/batch.rs:122`, `plan.rs:288`; rs-graph-llm `graph-flow-lance` `Envelope.generation: u32`.
 - **What:** using the Lance version as the handle generation (the natural choice: offset = version = generation) needs a fail-closed mapping past `u32::MAX`, or a wider field upstream. Plan H-ADR-15 condition 2.
 
@@ -93,7 +105,7 @@
 
 ## ISS-LG-PREFLIGHT-STALE-PINS — consumer preflight whitelists old lance pins
 
-- **Status:** RESOLVED 2026-10-10 by lance-graph #1436. Operator confirmed 2026-10-10: the whole fleet is on lance 12 / lancedb 0.39; this workspace floats `12.*` / `0.39.*`.
+- **Status:** REOPENED 2026-10-11, upstream text only; this workspace is correct. lance-graph #1436 set the preflight to `12.*`/`0.39.*`; #1437 then moved the fleet to lance 13 / lancedb 0.40 / Rust 1.99.0, so `ogar-consumer-preflight.md:45` is stale again. HubSPO-rs floats `13.*`/`0.40.*` (#6). Ask: the preflight points at lance-graph `CLAUDE.md` § Key Dependencies instead of restating numbers, so the next major bump cannot stale it.
 - **Where:** lance-graph `.claude/knowledge/ogar-consumer-preflight.md`.
 - **What:** it whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph
   `CLAUDE.md` floats `12.*` / `0.39.*`. Approved 2026-10-10 (OD-11): follow
@@ -124,7 +136,7 @@
   CRM's contact↔mailbox join key comes from spear's placement over the
   same dir-sim version (`spear/src/mail/directory.rs`), which already
   ships. The stalwart backend stays a library until (b) is worth doing.
-- **Status note:** nothing changed in stalwart.
+- **Status note (2026-10-11):** stalwart's dir-sim backend changed in fork #2–#6 (`dirsim/mod.rs` only: groups, no mailbox for a non-receiving holder, `mail` as a label, the cloud-observed remote mailbox). Nothing that builds or configures it changed (`Directories::build`, the registry `Directory` enum, `crates/main` features). Option (d) of OD-12: point stalwart's stock LDAP directory at lance-graph-dir-sim's read-only `ldap::Server` (#1453); still needs a host that owns the listener.
 
 ## ISS-ORACLE-PORTAL — no HubSpot sandbox portal yet
 
