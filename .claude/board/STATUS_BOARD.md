@@ -23,13 +23,13 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-ONT-1 | Harvest: `hubspo-harvest` pulls HubSpot's public OpenAPI specs + the properties/pipelines/association-label APIs of a sandbox portal → normalised schema JSON (zone 3, tool only) | M | In PR | public-catalog half done; sandbox half blocked on `ISS-ORACLE-PORTAL` |
+| D-ONT-1 | Harvest: `hubspo-harvest` pulls HubSpot's public OpenAPI specs + the properties/pipelines/association-label APIs of a sandbox portal → normalised schema JSON (zone 3, tool only) | M | Blocked | public-catalog half shipped (#3, `f019e4a`); sandbox half blocked on `ISS-ORACLE-PORTAL` |
 | D-ONT-2 | OGAR: `ogar-from-schema` OpenAPI front end (queued upstream, `lib.rs:48`) — **requested from OGAR, not built in HubSPO-rs** | L | Queued |  |
 | D-ONT-3 | Mint dossier: per candidate concept (H-ADR-2 table) the METHOD/STORAGE/STRUCTURE evidence + OGIT source + convergence argument; submit to the 5+3 codebook council | M | Shipped | ratified v3 `.claude/plans/hubspo-concept-mint-dossier-v3.md` (5+3 council, 2026-10-10) |
 | D-ONT-4 | OGAR PR: `ConceptDomain::Crm` (`0x05XX`), 15 concepts in `class_ids` + `CODEBOOK` + `ALL`, `HubSpoPort` (`0x000B`) + aliases, layout doc row; lance-graph `ogar_codebook` mirror rows + `AppPrefix` 0x0008–0x000B. `crm_actions` deferred to D-ACT-1 (dossier v3 §7) | M | Shipped | OGAR#330, lance-graph#1438 |
 | D-ONT-5 | `hubspo-port`: `RbacPlug` binding; `HotPlug` over Crm ids asserted to fail `NoCapabilitiesFor` until D-ACT-1 (dossier v3 §7); deliberately-wrong-plug test proving each drift arm can fire | S | Shipped | `hubspo-port`, 13 tests (`04edf87` on main) |
 | D-ONT-6 | `hubspo-schema`: ClassViews for contact, company, deal, ticket, lead, product, line item, quote, activity kinds; standard property position tables via the generator into `hubspo-generated` | L | Queued |  |
-| D-ONT-7 | Custom-object/-property design (H-ADR-3) + probe P-CUSTOM-1 (lane-per-property vs packed run; fold latency at 50 / 500 / 2,000 custom properties) | M | In progress | P-CUSTOM-1 2026-10-10: lanes 0.73–1.61× std, packed 15–35×; lane write 33–96 s vs 1.5 s |
+| D-ONT-7 | Custom-object/-property design (H-ADR-3) + probe P-CUSTOM-1 (lane-per-property vs packed run; fold latency at 50 / 500 / 2,000 custom properties) | M | In progress | P-CUSTOM-1 2026-10-10: lanes 0.73–1.61× std, packed 15–35×; the 33–96 s is a fresh K-column `Dataset::write`, not updates. Both measured paths are off the shipped path since #23/#25: re-probe as P-CUSTOM-2 under the resident fold |
 
 ## Wave 2 — Store, versions, history
 
@@ -48,7 +48,7 @@
 |---|---|---|---|---|
 | D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Shipped | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Shipped | `hubspo-query::list` (refresh, static add/remove/members, added/removed); tests vs full recomputation. P-LIST-1 2.6 ms at 10M; P-SPARSE-1 1.93 ms, 257 KiB flat at 10M. Storage of list masks lands with D-STO-1 |
-| D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | In progress | board half shipped (#21): `hubspo-query::board` (count + amount per stage as two `GroupReduce` programs); saved views + sorting open |
+| D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | In progress | board half shipped (#21): `hubspo-query::board` (count + amount per stage as two `GroupReduce` programs); saved-view half open: `SavedView` value type + sort at the edge over existing Quack programs (`Agg::Rows` storage order, `Count` threshold bisection for I32, `GroupReduce Count` for coded lanes); ORDER BY is asked upstream only if a page-cost probe fails |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
 | D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued |  |
 | D-QRY-6 | Reports: single-object, cross-object, funnel, time-series, attribution skeleton on `lance-graph-report` | XL | Queued |  |
@@ -85,7 +85,7 @@
 | D-MAIL-1 | stalwart deployment profile (separate service, AGPL stays there); stalwart keeps its own directory; contacts join to mailboxes through spear's placement (OD-12) | M | Queued | re-scoped 2026-10-10 (OD-12) |
 | D-MAIL-2 | Webhook receiver (HMAC verify) → spear `activity` rows for delivery / ingest events | M | Queued | wire surface mapped: `.claude/knowledge/comms-api-surface.md` §3 |
 | D-MAIL-3 | One-to-one email send from a record via JMAP `EmailSubmission`; `send_receipts` row | M | Queued |  |
-| D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`, no impl in tree) | L | Queued |  |
+| D-MAIL-4 | Inbound logging: MTA hook BCC capture + mailbox sync → associate to contacts by address → company / deal by association rules. Implements the contract's `MailParser` / `ThreadLinker` seams (`lance-graph-contract/src/mail.rs`) | L | Queued | `ThreadLinker` impl now exists: spear `RootThreads` (#19); consume spear's thread key |
 | D-MAIL-5 | Shared inbox / conversations: new spear roles (team inbox member, inbox admin) + ownership routing | L | Queued |  |
 | D-MAIL-6 | Meetings: CalDAV / JMAP Calendars, iTIP, booking pages (availability fold over calendars), meeting engagement records | XL | Queued |  |
 | D-MAIL-7 | Contact sync (CardDAV / JMAP Contacts) — two-way, conflict policy via crm-sim | L | Queued |  |
@@ -101,7 +101,7 @@
 | D-FLOW-2 | Enrolment triggers: mask delta between published versions ∩ criteria from a stored offset; due-run mask for delays and schedules; watcher as wake-up only (H-ADR-7, amended 2026-10-10) | L | Queued | P-FLOW-1 2026-10-10: commit → enrolled 13.8 ms p50 / 27.1 ms p99 at 1k workflows |
 | D-FLOW-3 | Action library: set property, create record/task, send email, add to list, webhook, rotate owner, delay, branch, custom code (loco program) | L | Queued |  |
 | D-FLOW-4 | Sequences: steps (email / task / call), stalwart future-release for scheduled sends, unenrol on reply/meeting booked (MTA hook / webhook) | L | Queued |  |
-| D-FLOW-5 | SLAs + ticket routing (round robin, skills) as timers + rules; reuse spear D-ROUTE patterns | M | Queued |  |
+| D-FLOW-5 | SLAs + ticket routing (round robin, skills) as timers + rules; reuse spear D-ROUTE patterns | M | Queued | no upstream primitive needed (audit 2026-10-11): Quack eligibility mask, `MinI32` last-assigned, `GroupReduce` load; assign-owner ActionDef via `GatedOgarHandler` |
 | D-FLOW-6 | Workflow test mode = crm-sim dry run over a sample population | M | Queued |  |
 | D-FLOW-7 | Ops-hub-style data sync connectors as flows (out of v1 scope beyond webhooks) | — | Queued |  |
 
