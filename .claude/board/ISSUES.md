@@ -3,9 +3,16 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LOG-NON-BATCH-VERSION — a non-batch Lance version on the log dataset stops the log
+
+- **Status:** OPEN (found 2026-10-10 by reading lance 13 and `log.rs`; not observed in a run)
+- **Where:** `hubspo-store::log` — `commit`'s head check and `replay`'s version-count check; the `log.rs` module doc and `LATEST_STATE.md` list "an index on `row`" as not yet done.
+- **What:** `replay` requires the Lance version to equal the batch count, and `commit` requires the head to be the table's version. A Lance version that is not a batch (CreateIndex, UpdateConfig, Restore, by any tool) therefore makes every later commit fail as `Diverged` and replay refuse the whole log. The roadmap item "an index on `row`" would add such a version. It also predates the resident fold (D-STO-5, 0.72 ms), which made that index unnecessary.
+- **Fix:** drop the roadmap item, and keep the rule that nothing but `Log::commit` writes a log dataset. An index, if one is ever wanted, lives off the log dataset.
+
 ## ISS-LOG-RACING-WRITER — a racing second writer is detected only after its batch is durable
 
-- **Status:** OPEN (found by review on lance-graph #1466)
+- **Status:** EXCLUDED 2026-10-10 — two writers on one mailbox break SoA ownership (iron rule 11), so the log does not handle that case. It was never observed; it came from reading Lance's commit code after a review of lance-graph #1466. The post-append check reports such a broken deployment, and replay refusing the log is the intended outcome. Nothing to build; the exploration map (lance-graph #1467) was closed unmerged.
 - **Where:** `hubspo-store::log::Log::commit`.
 - **What:** one writer per log comes from ownership (one writer per mailbox, iron rule 11), not from `commit`'s version checks. The check before the append refuses a stale writer. Two writers that both pass it both append, because Lance rebases an `Append` instead of failing it (lance-graph `spog-alpha-channel-v1.md` F6). The check after the append then reports `Diverged`, but the batch is already durable. Replay then refuses the log: two batches share a version and the Lance version no longer matches the batch count.
 - **Fix:** in-band idempotency, `(cycle, batch_hash)` in the same commit and reconciled first (the F6 shape), or a writer lease. Not needed while a single owner writes each log, which is the deployment shape.

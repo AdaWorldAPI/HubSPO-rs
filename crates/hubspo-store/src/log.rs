@@ -20,12 +20,9 @@
 //! one appends exactly one Lance version. [`Log::commit`] checks the log's
 //! latest version before and after the append; anything else means a second
 //! writer, which breaks one-writer-per-mailbox and is reported as
-//! [`LogError::Diverged`]. The checks do not *enforce* one writer; ownership
-//! does (one writer per mailbox). The check before the append refuses a
-//! stale writer. A racing writer passes it, because Lance rebases an
-//! `Append` instead of failing it, and the check after the append detects
-//! the race only once that batch is durable; replay then refuses the log
-//! until it is reconciled (ISS-LOG-RACING-WRITER).
+//! [`LogError::Diverged`], never accepted. One writer comes from ownership
+//! (one writer per mailbox), not from these checks: a second writer is a
+//! broken deployment, and the checks report it.
 //!
 //! **Durable first.** `commit` validates the batch, appends it, and only
 //! then applies it to the table. If the append fails the table is
@@ -315,11 +312,9 @@ impl Log {
         .map_err(lance_err)?;
         let after = ds.version().version;
         // Reached only when another writer appends between the check above
-        // and this write. No test can schedule that race; a disable run
-        // stays green (the sequential case is caught above). It detects,
-        // it does not prevent: by now this batch is durable (Lance rebases
-        // appends), so the log needs reconciling (ISS-LOG-RACING-WRITER).
-        // Kept because nothing else would notice.
+        // and this write, which ownership rules out. No test can schedule
+        // that; a disable run stays green (the sequential case is caught
+        // above). Kept because nothing else would notice a broken deployment.
         if after != before + 1 {
             return Err(LogError::Diverged {
                 expected: before + 1,
