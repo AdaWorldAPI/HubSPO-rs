@@ -89,11 +89,8 @@ pub fn visible_owners(
     if scope == OwnerScope::Team {
         for team in teams {
             if view.is_member(principal, team) {
-                owners.extend(
-                    view.members_transitive(team)
-                        .into_iter()
-                        .filter(|m| view.user_ordinal(m).is_some()),
-                );
+                // Users only, each once; nested groups are walked, not returned.
+                owners.extend(view.members_transitive(team));
             }
         }
     }
