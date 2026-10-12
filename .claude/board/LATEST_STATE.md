@@ -137,7 +137,8 @@
   append. Green, and kept on purpose: the post-append version check — it
   catches only a writer that appends between the check and the write, a
   race no sequential test can schedule.
-- Not yet: an index on `row`, object stores. The log is never compacted
+- Not yet: object stores. No index on `row`: only `Log::commit` writes a
+  log dataset (ISS-LOG-NON-BATCH-VERSION). The log is never compacted
   (decision 2026-10-10): the append order is the version order.
 
 ## Property history (D-STO-5, feature `lance`)
