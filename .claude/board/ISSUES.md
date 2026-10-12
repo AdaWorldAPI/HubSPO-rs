@@ -3,6 +3,13 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LG-METHOD-TABLE-PROBE-ONLY — the declared-method table is not consumable
+
+- **Status:** OPEN (found 2026-10-12, lance-graph `42fa2a34`; upstream ask, not built here)
+- **Where:** lance-graph `crates/lance-graph-glove-parity` (`method.rs`, `decl.rs`, D-CMH-1 #1501/#1504-#1509).
+- **What:** `MethodTable` binds a declared method (`<concept>::<label> key= schema= reading= := COUNT(*) | SUM(f) | GROUP_SUM(v BY k IN n) [WHERE …]`) to canonical fields, checks seal and reading, and lowers it to one Quack program. That is the shape of D-ACT-4 (rollups, calculated properties), D-QRY-3 saved-view metrics and the D-QRY-6 report measures. The crate is a probe with its own `[workspace]`, `publish = false` and sibling path deps (sap, r2il → OGAR), so it cannot be consumed by git, and it links `lance-graph-ogar`, which iron rule 10 keeps out of the server binary.
+- **Ask:** move the method table (spec, bind, prepare, Quack lowering, the text loader) into a git-consumable crate that does not need `lance-graph-ogar` at run time, with the concept resolved through the contract codebook. Until then HubSPO-rs does not hand-roll a parallel method format (STOP rule).
+
 ## ISS-LG-DIRSIM-NOT-GIT-CONSUMABLE — dir-sim and cypher-quack cannot be consumed by git
 
 - **Status:** RESOLVED 2026-10-11 for dir-sim by lance-graph `c471e8b5` (OGAR crates by git; the sibling paths stay only in the crate's own `[patch]`). Verified from outside: a scratch crate depending on `lance-graph-dir-sim` (feature `rbac`) and `lance-graph-dir-sim-lance` by git, importing `actors::{GroupRoles, ViewActors}`, passes `cargo check` on toolchain 1.99.0 at lance-graph `31652c5c`, OGAR `9803380`. `cypher-quack`'s paths are in-repo and resolve by git; `arm-discovery` still names ndarray by path, which HubSPO-rs does not need.
@@ -17,7 +24,7 @@
 
 ## ISS-LOG-NON-BATCH-VERSION — a non-batch Lance version on the log dataset stops the log
 
-- **Status:** OPEN (found 2026-10-10 by reading lance 13 and `log.rs`; not observed in a run)
+- **Status:** RESOLVED 2026-10-12 by the fix below: the roadmap item is dropped from the `log.rs` module doc and `LATEST_STATE.md`, and the doc now states the rule that only `Log::commit` writes a log dataset. Earlier: OPEN (found 2026-10-10 by reading lance 13 and `log.rs`; not observed in a run)
 - **Where:** `hubspo-store::log` — `commit`'s head check and `replay`'s version-count check; the `log.rs` module doc and `LATEST_STATE.md` list "an index on `row`" as not yet done.
 - **What:** `replay` requires the Lance version to equal the batch count, and `commit` requires the head to be the table's version. A Lance version that is not a batch (CreateIndex, UpdateConfig, Restore, by any tool) therefore makes every later commit fail as `Diverged` and replay refuse the whole log. The roadmap item "an index on `row`" would add such a version. It also predates the resident fold (D-STO-5, 0.72 ms), which made that index unnecessary.
 - **Fix:** drop the roadmap item, and keep the rule that nothing but `Log::commit` writes a log dataset. An index, if one is ever wanted, lives off the log dataset.

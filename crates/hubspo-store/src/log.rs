@@ -36,8 +36,13 @@
 //! reads one property of one record back as the list of writes that touched
 //! it, without opening the dataset.
 //!
-//! Not yet: an index on `row`, and object-store URIs beyond what `lance`
-//! resolves by itself.
+//! **Only `Log::commit` writes a log dataset.** Replay requires the Lance
+//! version to equal the batch count, so any other version (an index, a
+//! config update, a restore) stops the log as `Diverged`. History needs no
+//! index: it folds over the resident records. An index, if one is ever
+//! wanted, lives off the log dataset.
+//!
+//! Not yet: object-store URIs beyond what `lance` resolves by itself.
 
 use std::sync::Arc;
 
