@@ -40,6 +40,9 @@ cargo; the orchestrating session builds once).
    items wrong, items missed.
 7. A card that misses, miscounts or concludes twice on one kind of task is
    not used for that kind again; that kind goes to Sonnet.
+8. Before dispatching a card, read `.claude/board/AGENT_LOG.md` and its
+   **Retired** list. A retirement under rule 7 is recorded there as one
+   line, `card × task kind → Sonnet`, so a fresh session sees it.
 
 ## What makes a brief Haiku-sized
 

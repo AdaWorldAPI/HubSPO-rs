@@ -3,6 +3,10 @@
 > Haiku runs and their checks (`.claude/rules/agent-model-tiers.md` rule 6).
 > Newest first; one writer, the orchestrating session.
 
+## Retired
+
+(none: no card has failed twice on one kind of task)
+
 ## 2026-10-14 — merge harvest, lance-graph `c21bd165..a1abdf8f` + ndarray `3842ed6..1ecbccb`
 
 - **Card:** ad-hoc read-only harvest brief (before the cards were installed here); model haiku.
