@@ -88,6 +88,9 @@ cargo test --workspace
   dependencies). ndarray's default branch is `master`; every other sibling
   is `main`.
 - Worker agents never run cargo; the orchestrating session builds once.
+- Grindwork (harvest, counts, quotes, deep maps, exact spec edits) goes to
+  the Haiku cards in `.claude/agents/`, under `.claude/rules/agent-model-tiers.md`;
+  every run is checked and logged in `.claude/board/AGENT_LOG.md`.
 
 ## Test discipline
 
