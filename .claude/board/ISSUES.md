@@ -3,6 +3,13 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-LG-GRAPHFLOW-LANCE-PATHS — graph-flow-lance cannot be consumed by git
+
+- **Status:** OPEN (found 2026-10-14, rs-graph-llm `5b54301`; upstream ask)
+- **Where:** rs-graph-llm `crates/graph-flow-lance` (#27), excluded from that workspace.
+- **What:** the crate is the shape D-FLOW-1 needs: graph-flow tasks whose `Context` carries generation-checked plan and result handles, a fan-out as one mask-set coordinate folded in one pass, a checkpoint that fails closed on a newer source generation. It path-deps `lance-graph-report` and two `z8run` siblings, so a HubSPO-rs build cannot fetch it, and its handle generation is `z8run-lance`'s `Envelope.generation` (u32; see ISS-LG-REPORT-GENERATION-WIDTH).
+- **Ask:** git coordinates for `graph-flow-lance` and `z8run-lance` (the same move mask-risc made in lance-graph #1457). Until then D-FLOW-1 designs against it without depending on it.
+
 ## ISS-LG-METHOD-TABLE-PROBE-ONLY — the declared-method table is not consumable
 
 - **Status:** WITHDRAWN 2026-10-13: there is no table left to ask for. lance-graph #1524 (D-CMR-RESET, `9cfdf2a3`) moved the method layer to a backup branch: it was a second algebra beside the folds, lowered per call with fresh scratch, and `billable_hours` measured 430–480 µs against 283 µs for a scalar row loop. The rebuild (D-CMR, open) makes a class method a binding `classid × WideFieldMask → an existing compiled fold`, which is what HubSPO-rs's Quack programs already are. D-ACT-4 and the D-QRY-3/6 measures therefore build on compiled Quack programs now and gain a name when D-CMR lands. Earlier: OPEN (found 2026-10-12, lance-graph `42fa2a34`; upstream ask, not built here)
@@ -112,7 +119,7 @@
 
 ## ISS-LG-PREFLIGHT-STALE-PINS — consumer preflight whitelists old lance pins
 
-- **Status:** REOPENED 2026-10-11, upstream text only; this workspace is correct. lance-graph #1436 set the preflight to `12.*`/`0.39.*`; #1437 then moved the fleet to lance 13 / lancedb 0.40 / Rust 1.99.0, so `ogar-consumer-preflight.md:45` is stale again. HubSPO-rs floats `13.*`/`0.40.*` (#6). Ask: the preflight points at lance-graph `CLAUDE.md` § Key Dependencies instead of restating numbers, so the next major bump cannot stale it.
+- **Status:** STILL OPEN 2026-10-14 at lance-graph `c21bd165`: the preflight paragraph reads `lance 12.*` · `lancedb 0.39.*` while the fleet is on 13 / 0.40. Earlier: REOPENED 2026-10-11, upstream text only; this workspace is correct. lance-graph #1436 set the preflight to `12.*`/`0.39.*`; #1437 then moved the fleet to lance 13 / lancedb 0.40 / Rust 1.99.0, so `ogar-consumer-preflight.md:45` is stale again. HubSPO-rs floats `13.*`/`0.40.*` (#6). Ask: the preflight points at lance-graph `CLAUDE.md` § Key Dependencies instead of restating numbers, so the next major bump cannot stale it.
 - **Where:** lance-graph `.claude/knowledge/ogar-consumer-preflight.md`.
 - **What:** it whitelists `lance =9.0.0 / lancedb =0.33.0`; lance-graph
   `CLAUDE.md` floats `12.*` / `0.39.*`. Approved 2026-10-10 (OD-11): follow

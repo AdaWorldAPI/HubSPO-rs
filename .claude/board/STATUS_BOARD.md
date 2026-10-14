@@ -46,11 +46,11 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Shipped | `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
+| D-QRY-1 | Filter compiler: HubSpot filter groups (AND within group, OR across groups; operators EQ/NEQ/LT/…/HAS_PROPERTY/CONTAINS_TOKEN/IN/BETWEEN) → Quack program | L | Shipped | 2026-10-14: lance-graph #1546 `lance-graph-relalg` (D-RA-1) normalizes a filter before it runs and answers a contradictory one as `Empty` without a program; D-CMR-1 moves that set algebra into the contract. Adopt it there, not from the prototype crate; `hubspo-store::catalog` + `hubspo-query::filter`; 600 random filter sets equal a plain-loop oracle on mask-risc; #19 |
 | D-QRY-2 | Lists: active (incremental on version delta) + static (stored mask); membership history | L | Shipped | `hubspo-query::list` (refresh, static add/remove/members, added/removed); tests vs full recomputation. P-LIST-1 2.6 ms at 10M; P-SPARSE-1 1.93 ms, 257 KiB flat at 10M. Storage of list masks lands with D-STO-1 |
 | D-QRY-3 | Saved views + board view (report pivot over pipeline × stage) | M | In progress | board half shipped (#21): `hubspo-query::board` (count + amount per stage as two `GroupReduce` programs); saved-view half open: `SavedView` value type + sort at the edge over existing Quack programs (`Agg::Rows` storage order, `Count` threshold bisection for I32, `GroupReduce Count` for coded lanes); ORDER BY is asked upstream only if a page-cost probe fails |
 | D-QRY-4 | Quack lowering of callcenter's `ParsedQuery` (the upstream DataFusion `parsed_query_to_plan` is an unimplemented stub) | M | Queued |  |
-| D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued |  |
+| D-QRY-5 | Association-traversing filters ("contacts whose company has an open deal"): Quack `Semijoin` over edge lanes for one hop; multi-hop needs cypher-quack shapes that do not exist yet → upstream request first | L | Queued | 2026-10-14: the hop is D-CMR-5, preimage `f⁻¹(S)` under a proven mapping (lance-graph `d-cmr-concept-chain-normalization-v1`), not chained key reads (withdrawn in #1524 / ndarray #359). One hop waits on D-CMR-5, not on cypher-quack |
 | D-QRY-6 | Reports: single-object, cross-object, funnel, time-series, attribution skeleton on `lance-graph-report` | XL | Queued |  |
 | D-QRY-7 | Full-text search over records (Tantivy, reference-indexed, reconciled from the store — tesseract-paperless `search` pattern) | M | Queued |  |
 
@@ -97,7 +97,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
-| D-FLOW-1 | Workflow model: trigger (criteria / event / schedule / webhook), enrolment, re-enrolment, actions, branches (if/then, value equals, A/B), delays (fixed, until date, until event) as graph-flow graphs | XL | Queued |  |
+| D-FLOW-1 | Workflow model: trigger (criteria / event / schedule / webhook), enrolment, re-enrolment, actions, branches (if/then, value equals, A/B), delays (fixed, until date, until event) as graph-flow graphs | XL | Queued | 2026-10-14: rs-graph-llm #27 `graph-flow-lance` — graph-flow tasks over lance-graph-report folds, the Context holds generation-checked handles, never rows (ISS-LG-GRAPHFLOW-LANCE-PATHS) |
 | D-FLOW-2 | Enrolment triggers: mask delta between published versions ∩ criteria from a stored offset; due-run mask for delays and schedules; watcher as wake-up only (H-ADR-7, amended 2026-10-10) | L | Queued | P-FLOW-1 2026-10-10: commit → enrolled 13.8 ms p50 / 27.1 ms p99 at 1k workflows |
 | D-FLOW-3 | Action library: set property, create record/task, send email, add to list, webhook, rotate owner, delay, branch, custom code (loco program) | L | Queued |  |
 | D-FLOW-4 | Sequences: steps (email / task / call), stalwart future-release for scheduled sends, unenrol on reply/meeting booked (MTA hook / webhook) | L | Queued |  |
