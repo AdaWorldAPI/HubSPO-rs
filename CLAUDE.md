@@ -18,6 +18,8 @@ first, reimagine second, touch grass.
 1. This file.
 2. `.claude/board/LATEST_STATE.md` and `.claude/board/STATUS_BOARD.md`
    (what exists, which D-ids are in flight).
+   Before dispatching any Haiku card, also `.claude/board/AGENT_LOG.md`
+   (which card/task kinds are retired).
 3. `.claude/plans/hubspo-integration-v1.md` — decisions H-ADR-1..14,
    ground truth of every sibling repo, waves W0–W11 with gates.
 4. `.claude/plans/hubspo-feature-matrix-v1.md` for the feature you touch.
@@ -69,7 +71,10 @@ first, reimagine second, touch grass.
     on behalf of it; no actor-per-message writes, no singleton sink.
 12. **Two oracles.** Every surface is checked against a HubSpot sandbox
     export (values) and the HubSpot screen graph (structure, Klickwege).
-13. **No model identifier** in any committed artifact.
+13. **No model identifier** in any committed artifact: no versioned model
+    ID and no model version number. The tier names Opus / Sonnet / Haiku that
+    route work (`.claude/rules/agent-model-tiers.md`, the `model:` key in
+    `.claude/agents/*.md`) are configuration, not identifiers, and are allowed.
 
 ## Build
 
@@ -88,6 +93,9 @@ cargo test --workspace
   dependencies). ndarray's default branch is `master`; every other sibling
   is `main`.
 - Worker agents never run cargo; the orchestrating session builds once.
+- Grindwork (harvest, counts, quotes, deep maps, exact spec edits) goes to
+  the Haiku cards in `.claude/agents/`, under `.claude/rules/agent-model-tiers.md`;
+  every run is checked and logged in `.claude/board/AGENT_LOG.md`.
 
 ## Test discipline
 
