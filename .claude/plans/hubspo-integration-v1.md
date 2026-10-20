@@ -359,6 +359,10 @@ review required for those marked **[OPERATOR]**.
   ruling (per-app render prefixes in the classview bits are a fossil). Mint
   no CRM key, and build no ClassView keyed on `0x000B`, until that issue is
   answered. The concept half and `mint_for` stand.
+- **Decided 2026-10-20 (operator):** CRM keys carry classview `0x0000`, the
+  shared canonical core: the classid is `concept << 16`. The reading comes
+  from the authority by concept; `0x000B` is never part of a key. ClassViews
+  and position tables (D-ONT-6) are keyed by concept.
 
 ### H-ADR-2 — Ports and concepts: one port, converge first, mint last **[OPERATOR]**
 
@@ -821,8 +825,9 @@ are no hand-written model structs).
 
 ```
 NodeRow (512 B)
-  key   (16)  NodeGuid — classid(4: concept<<16 | 0x000B) + V3 12-byte facet
-              (⊘ low half blocked: ISS-CRM-KEY-CLASSVIEW, see H-ADR-1)
+  key   (16)  NodeGuid — classid(4: concept<<16 | 0x0000) + V3 12-byte facet
+              (low half decided 2026-10-20: shared core 0x0000, see H-ADR-1;
+               ⊘ was `| 0x000B`)
   edge  (16)  content-blind facet cascade (edge_codec_flavor per ClassView)
   value (480) ClassView-carved standard property lanes
               [owner_guid_ref][create_ts][modify_ts][lifecycle_stage_id]
