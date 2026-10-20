@@ -1,0 +1,677 @@
+contact	0	Contact activity	Campaign of last booking in meetings tool
+contact	1	Contact activity	Contact priority
+contact	2	Contact activity	Currently in sequence
+contact	3	Contact activity	Date of last meeting booked in meetings tool
+contact	4	Contact activity	First conversion
+contact	5	Contact activity	First conversion date
+contact	6	Contact activity	Last activity date
+contact	7	Contact activity	Last contacted
+contact	8	Contact activity	Last NPS survey comment
+contact	9	Contact activity	Last NPS survey date
+contact	10	Contact activity	Last NPS survey rating
+contact	11	Contact activity	Last engagement date
+contact	12	Contact activity	Likelihood to close
+contact	13	Contact activity	Medium of last booking in meetings tool
+contact	14	Contact activity	Next activity date
+contact	15	Contact activity	Number of sales activities
+contact	16	Contact activity	Recent sales email clicked date
+contact	17	Contact activity	Recent sales email open date
+contact	18	Contact activity	Recent sales email replied date
+contact	19	Contact activity	Source of last booking in meetings tool
+contact	20	Contact Information	Annual revenue
+contact	21	Contact Information	Brands
+contact	22	Contact Information	City
+contact	23	Contact Information	Company name
+contact	24	Contact Information	Contact owner
+contact	25	Contact Information	Contact unworked?
+contact	26	Contact Information	Country/Region
+contact	27	Contact Information	Country/Region Code
+contact	28	Contact Information	Create date
+contact	29	Contact Information	Created by user ID
+contact	30	Contact Information	Date of first engagement
+contact	31	Contact Information	Description of first engagement
+contact	32	Contact Information	Email
+contact	33	Contact Information	Email domain
+contact	34	Contact Information	Employment Role
+contact	35	Contact Information	Employment Seniority
+contact	36	Contact Information	Employment Sub Role
+contact	37	Contact Information	Enrichment opt out
+contact	38	Contact Information	Enrichment opt out timestamp
+contact	39	Contact Information	Fax number
+contact	40	Contact Information	First name
+contact	41	Contact Information	Has been enriched
+contact	42	Contact Information	HubSpot score
+contact	43	Contact Information	ID of first engagement
+contact	44	Contact Information	Industry
+contact	45	Contact Information	Job title
+contact	46	Contact Information	Last name
+contact	47	Contact Information	Last modified date
+contact	48	Contact Information	Last sequence enrolled
+contact	49	Contact Information	Last sequence enrolled date
+contact	50	Contact Information	Last sequence ended date
+contact	51	Contact Information	Lead status
+contact	52	Contact Information	Lead response time
+contact	53	Contact Information	Legal basis for processing contact's data
+contact	54	Contact Information	Lifecycle stage
+contact	55	Contact Information	LinkedIn URL
+contact	56	Contact Information	Marketing contact status
+contact	57	Contact Information	Marketing contact status source type
+contact	58	Contact Information	Marketing contact status source name
+contact	59	Contact Information	Marketing contact until next update
+contact	60	Contact Information	Member email
+contact	61	Contact Information	Merged Contact IDs
+contact	62	Contact Information	Message
+contact	63	Contact Information	Mobile phone number
+contact	64	Contact Information	Number of employees
+contact	65	Contact Information	Number of sequences enrolled
+contact	66	Contact Information	Number of times contacted
+contact	67	Contact Information	Owner assigned date
+contact	68	Contact Information	HubSpot team
+contact	69	Contact Information	Persona
+contact	70	Contact Information	Phone number
+contact	71	Contact Information	Postal code
+contact	72	Contact Information	Preferred language
+contact	73	Contact Information	Record ID
+contact	74	Contact Information	Record Source Detail 2
+contact	75	Contact Information	Record Source Detail 3
+contact	76	Contact Information	Salutation
+contact	77	Contact Information	Shared teams
+contact	78	Contact Information	Shared users
+contact	79	Contact Information	State/Region
+contact	80	Contact Information	State/Region Code
+contact	81	Contact Information	Street address
+contact	82	Contact Information	Time between contact creation and deal creation
+contact	83	Contact Information	Time zone
+contact	84	Contact Information	Type of first engagement
+contact	85	Contact Information	Updated by user ID
+contact	86	Contact Information	Website URL
+contact	87	Contact Lifecycle Stage Properties	Cumulative time in [lifecycle stage]
+contact	88	Contact Lifecycle Stage Properties	Date entered [lifecycle stage]
+contact	89	Contact Lifecycle Stage Properties	Date exited [lifecycle stage]
+contact	90	Contact Lifecycle Stage Properties	Latest time in [lifecycle stage]
+contact	91	Conversion Information	Facebook click ID
+contact	92	Conversion Information	Google ad click ID
+contact	93	Conversion Information	IP city
+contact	94	Conversion Information	IP country
+contact	95	Conversion Information	IP country code
+contact	96	Conversion Information	IP state/region
+contact	97	Conversion Information	IP state/region code
+contact	98	Conversion Information	IP time zone
+contact	99	Conversion Information	Number of form submissions
+contact	100	Conversion Information	Number of unique forms submitted
+contact	101	Conversion Information	Recent conversion
+contact	102	Conversion Information	Recent conversion date
+contact	103	Deal information	Buying role
+contact	104	Deal information	Close date
+contact	105	Deal information	Days to close
+contact	106	Deal information	First deal created date
+contact	107	Deal information	Number of associated deals
+contact	108	Deal information	Recent deal amount
+contact	109	Deal information	Recent deal close date
+contact	110	Deal information	Total revenue
+contact	111	Email Information	Email address quarantined
+contact	112	Email Information	Email hard bounce reason
+contact	113	Email Information	Invalid email address
+contact	114	Email Information	Marketing email confirmation status
+contact	115	Email Information	Marketing emails delivered
+contact	116	Email Information	Marketing emails bounced
+contact	117	Email Information	Marketing emails opened
+contact	118	Email Information	Marketing emails clicked
+contact	119	Email Information	First marketing email send date
+contact	120	Email Information	First marketing email open date
+contact	121	Email Information	First marketing email click date
+contact	122	Email Information	First marketing email reply date
+contact	123	Email Information	Last marketing email send date
+contact	124	Email Information	Last marketing email open date
+contact	125	Email Information	Last marketing email click date
+contact	126	Email Information	Last marketing email reply date
+contact	127	Email Information	Last marketing email name
+contact	128	Email Information	Unsubscribed from all email
+contact	129	Email Information	Opted out of email: [email type name]
+contact	130	Email Information	Sends since last engagement
+contact	131	Web Analytics History	Average page views
+contact	132	Web Analytics History	Event revenue
+contact	133	Web Analytics History	First page seen
+contact	134	Web Analytics History	First referring site
+contact	135	Web Analytics History	First touch converting campaign
+contact	136	Web Analytics History	Last page seen
+contact	137	Web Analytics History	Last referring site
+contact	138	Web Analytics History	Last touch converting campaign
+contact	139	Web Analytics History	Latest Traffic Source
+contact	140	Web Analytics History	Latest Traffic Source Date
+contact	141	Web Analytics History	Latest Traffic Source drill-down 1
+contact	142	Web Analytics History	Latest Traffic Source drill-down 2
+contact	143	Web Analytics History	Number of event completions
+contact	144	Web Analytics History	Number of page views
+contact	145	Web Analytics History	Number of sessions
+contact	146	Web Analytics History	Original Traffic Source
+contact	147	Web Analytics History	Original Traffic Source drill-down 1
+contact	148	Web Analytics History	Original Traffic Source drill-down 2
+contact	149	Web Analytics History	Time first seen
+contact	150	Web Analytics History	Time last seen
+contact	151	Web Analytics History	Time of first session
+contact	152	Web Analytics History	Time of last session
+contact	153	Contact Calculated Information	Customers
+contact	154	Contact Calculated Information	Sources
+contact	155	Ads properties	Date of birth
+contact	156	Ads properties	Gender
+contact	157	Ads properties	Marital status
+contact	158	Ads properties	Relationship status
+contact	159	Ads properties	Military status
+contact	160	Ads properties	Work email
+contact	161	Ads properties	Job function
+contact	162	Ads properties	Seniority
+contact	163	Ads properties	Company size
+contact	164	Ads properties	Degree
+contact	165	Ads properties	Field of study
+contact	166	Ads properties	School
+contact	167	Ads properties	Start date
+contact	168	Ads properties	Graduation date
+contact	169	Private content access properties	Domain to which registration email was sent
+contact	170	Private content access properties	Email confirmed
+contact	171	Private content access properties	Membership notes
+contact	172	Private content access properties	Registered at
+contact	173	Private content access properties	Status
+contact	174	Private content access properties	Time registration email was sent
+company	0	Company Information	About us
+company	1	Company Information	Annual revenue
+company	2	Company Information	Brands
+company	3	Company Information	City
+company	4	Company Information	Close date
+company	5	Company Information	Company domain name
+company	6	Company Information	Country/Region
+company	7	Company Information	Country/Region code
+company	8	Company Information	Create date
+company	9	Company Information	Created by user ID
+company	10	Company Information	Description
+company	11	Company Information	Employee range
+company	12	Company Information	First contact create date
+company	13	Company Information	First deal created date
+company	14	Company Information	Ideal Customer Profile Tier
+company	15	Company Information	Industry
+company	16	Company Information	Industry group
+company	17	Company Information	Is public
+company	18	Company Information	Last activity date
+company	19	Company Information	Last contacted
+company	20	Company Information	Last modified date
+company	21	Company Information	Last Engagement Date
+company	22	Company Information	Latest Traffic Source
+company	23	Company Information	Latest Traffic Source data 1
+company	24	Company Information	Latest Traffic Source data 2
+company	25	Company Information	Latest Traffic Source Date
+company	26	Company Information	Lead status
+company	27	Company Information	Lifecycle stage
+company	28	Company Information	Linkedin handle
+company	29	Company Information	Merged Company IDs
+company	30	Company Information	Company name
+company	31	Company Information	Next activity date
+company	32	Company Information	Number of associated contacts
+company	33	Company Information	Number of associated deals
+company	34	Company Information	Number of child companies
+company	35	Company Information	Number of employees
+company	36	Company Information	Number of open deals
+company	37	Company Information	Owner
+company	38	Company Information	Owner assigned date
+company	39	Company Information	Parent company
+company	40	Company Information	Phone number
+company	41	Company Information	Postal code
+company	42	Company Information	Quick context
+company	43	Company Information	Recent deal amount
+company	44	Company Information	Recent deal close date
+company	45	Company Information	Record ID
+company	46	Company Information	Record Source Detail 2
+company	47	Company Information	Record Source Detail 3
+company	48	Company Information	Revenue range
+company	49	Company Information	Shared teams
+company	50	Company Information	Shared users
+company	51	Company Information	State/Region
+company	52	Company Information	State/Region Code
+company	53	Company Information	Street address
+company	54	Company Information	Street address 2
+company	55	Company Information	Target account
+company	56	Company Information	Time zone
+company	57	Company Information	Total money raised
+company	58	Company Information	Total revenue
+company	59	Company Information	Type
+company	60	Company Information	Updated by user ID
+company	61	Company Information	Web Technologies
+company	62	Company Information	Website URL
+company	63	Company Information	Year founded
+company	64	Social Media Information	Facebook company page
+company	65	Social Media Information	Facebook fans
+company	66	Social Media Information	Google Plus page
+company	67	Social Media Information	LinkedIn bio
+company	68	Social Media Information	LinkedIn company page
+company	69	Social Media Information	Twitter bio
+company	70	Social Media Information	Twitter followers
+company	71	Social Media Information	Twitter handle
+company	72	Company Lifecycle Stage properties	Cumulative time in [lifecycle stage]
+company	73	Company Lifecycle Stage properties	Date entered [lifecycle stage]
+company	74	Company Lifecycle Stage properties	Date exited [lifecycle stage]
+company	75	Company Lifecycle Stage properties	Latest time in [lifecycle stage]
+company	76	Web Analytics History	Days to close
+company	77	Web Analytics History	First touch converting campaign
+company	78	Web Analytics History	Last touch converting campaign
+company	79	Web Analytics History	Number of page views
+company	80	Web Analytics History	Number of sessions
+company	81	Web Analytics History	Original Traffic Source drill-down 1
+company	82	Web Analytics History	Original Traffic Source drill-down 2
+company	83	Web Analytics History	Original Traffic Source
+company	84	Web Analytics History	Time first seen
+company	85	Web Analytics History	Time last seen
+company	86	Web Analytics History	Time of first session
+company	87	Web Analytics History	Time of last session
+company	88	Conversion Information	First conversion
+company	89	Conversion Information	First conversion date
+company	90	Conversion Information	Number of form submissions
+company	91	Conversion Information	Recent conversion
+company	92	Conversion Information	Recent conversion date
+deal	0	Analytics history	Latest Traffic Source
+deal	1	Analytics history	Latest Traffic Source drill-down 1
+deal	2	Analytics history	Latest Traffic Source drill-down 2
+deal	3	Analytics history	Latest Traffic Source Date
+deal	4	Analytics history	Original Traffic Source drill-down 1
+deal	5	Analytics history	Original Traffic Source drill-down 2
+deal	6	Analytics history	Original Traffic Source
+deal	7	Calculated Deal Information	Average Deal Owner Duration In Current Stage
+deal	8	Calculated Deal Information	Is Stalled After Timestamp
+deal	9	Deal activity	Campaign of last booking in meetings tool
+deal	10	Deal activity	Closed lost reason
+deal	11	Deal activity	Closed won reason
+deal	12	Deal activity	Date of last meeting booked in meetings tool
+deal	13	Deal activity	Deal stage
+deal	14	Deal activity	Is closed lost
+deal	15	Deal activity	Is Closed Won
+deal	16	Deal activity	Last activity date
+deal	17	Deal activity	Last contacted
+deal	18	Deal activity	Last modified date
+deal	19	Deal activity	Medium of last booking in meetings tool
+deal	20	Deal activity	Next activity date
+deal	21	Deal activity	Number of Sales Activities
+deal	22	Deal activity	Number of times contacted
+deal	23	Deal activity	Owner assigned date
+deal	24	Deal activity	Pipeline
+deal	25	Deal activity	Source of last booking in meetings tool
+deal	26	Deal information	Brands
+deal	27	Deal information	Create date
+deal	28	Deal information	Created by user ID
+deal	29	Deal information	Deal collaborator
+deal	30	Deal information	Deal description
+deal	31	Deal information	Deal name
+deal	32	Deal information	Deal owner
+deal	33	Deal information	Deal probability
+deal	34	Deal information	Deal tags
+deal	35	Deal information	Deal type
+deal	36	Deal information	Forecast amount
+deal	37	Deal information	Forecast category
+deal	38	Deal information	Forecast probability
+deal	39	Deal information	HubSpot team
+deal	40	Deal information	Merged Deal IDs
+deal	41	Deal information	Next Meeting ID
+deal	42	Deal information	Next Meeting Name
+deal	43	Deal information	Next Meeting Start Time
+deal	44	Deal information	Next step
+deal	45	Deal information	Number of associated contacts
+deal	46	Deal information	Priority
+deal	47	Deal information	Record ID
+deal	48	Deal information	Record Source Detail 2
+deal	49	Deal information	Record Source Detail 3
+deal	50	Deal information	Shared teams
+deal	51	Deal information	Shared users
+deal	52	Deal information	Updated by user ID
+deal	53	Deal information	Weighted amount
+deal	54	Deal revenue	Amount
+deal	55	Deal revenue	Amount in company currency
+deal	56	Deal revenue	Annual contract value (ACV)
+deal	57	Deal revenue	Annual recurring revenue (ARR)
+deal	58	Deal revenue	Currency
+deal	59	Deal revenue	Exchange rate
+deal	60	Deal revenue	Monthly recurring revenue (MRR)
+deal	61	Deal revenue	Total contract value (TCV)
+deal	62	Deal Stage Properties	Date entered current stage
+deal	63	Deal Stage Properties	Date entered [stage ID]
+deal	64	Deal Stage Properties	Date exited [stage ID]
+deal	65	Deal Stage Properties	Latest time in [stage ID]
+deal	66	Deal Stage Properties	Cumulative time in [stage ID]
+deal	67	Deal Stage Properties	Time in current stage
+deal	68	Recurring Revenue Information	Recurring revenue amount
+deal	69	Recurring Revenue Information	Recurring revenue deal type
+deal	70	Recurring Revenue Information	Recurring revenue date
+deal	71	Recurring Revenue Information	Recurring revenue inactive reason
+deal	72	Custom report deal properties	Deal Status
+deal	73	Custom report deal properties	Closed amount
+deal	74	Custom report deal properties	Days to close
+ticket	0	Ticket information	Assigned teams
+ticket	1	Ticket information	Brands
+ticket	2	Ticket information	Category
+ticket	3	Ticket information	Close date
+ticket	4	Ticket information	Create date
+ticket	5	Ticket information	Created by user ID
+ticket	6	Ticket information	Language
+ticket	7	Ticket information	Last response date
+ticket	8	Ticket information	Merged Ticket IDs
+ticket	9	Ticket information	Next activity date
+ticket	10	Ticket information	Number of associated companies
+ticket	11	Ticket information	Number of times contacted
+ticket	12	Ticket information	Outbound ticket
+ticket	13	Ticket information	Originating channel account
+ticket	14	Ticket information	Originating channel type
+ticket	15	Ticket information	Owner
+ticket	16	Ticket information	Owner assigned date
+ticket	17	Ticket information	Pipeline
+ticket	18	Ticket information	Priority
+ticket	19	Ticket information	Record ID
+ticket	20	Ticket information	Record Source Detail 2
+ticket	21	Ticket information	Record Source Detail 3
+ticket	22	Ticket information	Resolution
+ticket	23	Ticket information	Shared teams
+ticket	24	Ticket information	Shared users
+ticket	25	Ticket information	Source
+ticket	26	Ticket information	Ticket description
+ticket	27	Ticket information	Ticket name
+ticket	28	Ticket information	Ticket status
+ticket	29	Ticket information	Time to first rep assignment
+ticket	30	Ticket information	Time to first response SLA due date
+ticket	31	Ticket information	Time to first response SLA ticket status
+ticket	32	Ticket information	Time to first response in SLA hours
+ticket	33	Ticket information	Time to close in SLA hours
+ticket	34	Ticket information	Time to close
+ticket	35	Ticket information	Time to close SLA due date
+ticket	36	Ticket information	Time to close SLA ticket status
+ticket	37	Ticket information	Time to first agent email reply
+ticket	38	Ticket information	Updated by user ID
+ticket	39	Ticket Stage Properties	Cumulative time in [status ID]
+ticket	40	Ticket Stage Properties	Date entered [status ID]
+ticket	41	Ticket Stage Properties	Date exited [status ID]
+ticket	42	Ticket Stage Properties	Latest time in [status ID]
+ticket	43	Ticket activity	First agent email response date
+ticket	44	Ticket activity	Last activity date
+ticket	45	Ticket activity	Last Closed Date
+ticket	46	Ticket activity	Last contacted date
+ticket	47	Ticket activity	Last customer reply date
+ticket	48	Ticket activity	Last modified date
+ticket	49	Ticket activity	Number of Sales Activities
+lead	0	Lead Information	Associated company timezone
+lead	1	Lead Information	Associated contact timezone
+lead	2	Lead Information	Associated Deal Pipeline Stage
+lead	3	Lead Information	Associated deals
+lead	4	Lead Information	Call Count
+lead	5	Lead Information	Closed won deal amount
+lead	6	Lead Information	Company Last Engagement Date
+lead	7	Lead Information	Company Last Engagement Type
+lead	8	Lead Information	Company Number of Pageviews
+lead	9	Lead Information	Company Time of Last Session
+lead	10	Lead Information	Contact Buying Role
+lead	11	Lead Information	Contact Last Engagement Date
+lead	12	Lead Information	Contact Last Engagement Type
+lead	13	Lead Information	Contact Number of Pageviews
+lead	14	Lead Information	Contact Time of Last Session
+lead	15	Lead Information	Created by user ID
+lead	16	Lead Information	Disqualification Reason
+lead	17	Lead Information	Email Count
+lead	18	Lead Information	First Outreach Date
+lead	19	Lead Information	HubSpot Team
+lead	20	Lead Information	Is Target Account
+lead	21	Lead Information	*Last Activity Date
+lead	22	Lead Information	*Last Engagement Date
+lead	23	Lead Information	*Last Engagement Type
+lead	24	Lead Information	Lead Disqualification Note
+lead	25	Lead Information	Lead Label
+lead	26	Lead Information	Lead Name
+lead	27	Lead Information	*Lead Number of Pageviews
+lead	28	Lead Information	Lead Owner
+lead	29	Lead Information	Lead Pipeline
+lead	30	Lead Information	Lead Pipeline Stage
+lead	31	Lead Information	*Lead Source
+lead	32	Lead Information	*Lead Time of Last Session
+lead	33	Lead Information	Lead type
+lead	34	Lead Information	Meeting Count
+lead	35	Lead Information	Merge record IDs
+lead	36	Lead Information	Message Thread Count
+lead	37	Lead Information	*Next Activity Date
+lead	38	Lead Information	Object create date/time
+lead	39	Lead Information	Object last modified date/time
+lead	40	Lead Information	Open deal amount
+lead	41	Lead Information	Open leads
+lead	42	Lead Information	Outreach activity count
+lead	43	Lead Information	Owner Assigned Date
+lead	44	Lead Information	Pipeline Stage Category
+lead	45	Lead Information	Primary Associated Company Object ID
+lead	46	Lead Information	Primary Associated Contact Object ID
+lead	47	Lead Information	Primary Associated Object Name
+lead	48	Lead Information	Primary contact enrolled in sequence
+lead	49	Lead Information	Record ID
+lead	50	Lead Information	Record Source
+lead	51	Lead Information	Record Source Detail 1
+lead	52	Lead Information	Record Source Detail 2
+lead	53	Lead Information	Record Source Detail 3
+lead	54	Lead Information	Source lifecycle stage
+lead	55	Lead Information	Time to First Touch
+lead	56	Lead Information	Updated by user ID
+lead	57	Lead Stage Properties	Date entered [stage ID]
+lead	58	Lead Stage Properties	Date exited [stage ID]
+lead	59	Lead Stage Properties	Latest time in [stage ID]
+lead	60	Lead Stage Properties	Cumulative time in [stage ID]
+product	0	Billing	Term
+product	1	Product information	Create Date
+product	2	Product information	Created by user ID
+product	3	Product information	Image Url
+product	4	Product information	Last Modified Date
+product	5	Product information	Merged record IDs
+product	6	Product information	Name
+product	7	Product information	Object create date/time
+product	8	Product information	Owner
+product	9	Product information	Owner assigned date
+product	10	Product information	Product description
+product	11	Product information	Product type
+product	12	Product information	Record ID
+product	13	Product information	Record source
+product	14	Product information	Record source detail 1
+product	15	Product information	Record source detail 2
+product	16	Product information	Record source detail 3
+product	17	Product information	SKU
+product	18	Product information	Status
+product	19	Product information	Tax Category
+product	20	Product information	Updated by user ID
+product	21	Product information	URL
+product	22	Price	Billing frequency
+product	23	Price	Pricing model
+product	24	Price	Unit cost
+product	25	Price	Unit price
+line_item	0	Billing	Billing start date
+line_item	1	Billing	Delayed billing start by days
+line_item	2	Billing	Delayed billing start by months
+line_item	3	Billing	Start billing terms
+line_item	4	Billing	Term
+line_item	5	Line item information	Allow buyer selected quantity
+line_item	6	Line item information	Create Date
+line_item	7	Line item information	Created by user ID
+line_item	8	Line item information	Currency
+line_item	9	Line item information	Description
+line_item	10	Line item information	Image URL
+line_item	11	Line item information	Last Modified Date
+line_item	12	Line item information	Merged record IDs
+line_item	13	Line item information	Name
+line_item	14	Line item information	Object create date/time
+line_item	15	Line item information	Owner
+line_item	16	Line item information	Owner assigned date
+line_item	17	Line item information	Owner's main team
+line_item	18	Line item information	Product type
+line_item	19	Line item information	Record ID
+line_item	20	Line item information	Record source
+line_item	21	Line item information	Record source detail 1
+line_item	22	Line item information	Record source detail 2
+line_item	23	Line item information	Record source detail 3
+line_item	24	Line item information	SKU
+line_item	25	Line item information	Updated by user ID
+line_item	26	Line item information	URL
+line_item	27	Line item information	Variant id of the product
+line_item	28	Price	Annual contract value
+line_item	29	Price	Annual contract value margin
+line_item	30	Price	Annual recurring revenue
+line_item	31	Price	Annual recurring revenue margin
+line_item	32	Price	Billing frequency
+line_item	33	Price	Billing terms
+line_item	34	Price	Calculated Total Discount
+line_item	35	Price	Discount Percentage
+line_item	36	Price	Effective Unit Price
+line_item	37	Price	Margin
+line_item	38	Price	Monthly recurring revenue
+line_item	39	Price	Monthly recurring revenue margin
+line_item	40	Price	Net price
+line_item	41	Price	Net Price after tax
+line_item	42	Price	Number of payments
+line_item	43	Price	Pre Discount Amount
+line_item	44	Price	Pricing model
+line_item	45	Price	Quantity
+line_item	46	Price	Tax amount
+line_item	47	Price	Tax category
+line_item	48	Price	Tax rate
+line_item	49	Price	Total contract value
+line_item	50	Price	Total contract value margin
+line_item	51	Price	Unit cost
+line_item	52	Price	Unit discount
+line_item	53	Price	Unit price
+call	0	General activity properties	Activity assigned to
+call	1	General activity properties	Activity created by
+call	2	General activity properties	Activity date
+call	3	General activity properties	Attached file IDs
+call	4	General activity properties	Create date
+call	5	General activity properties	Created by user ID
+call	6	General activity properties	Last modified date
+call	7	General activity properties	Record Source Detail 2
+call	8	General activity properties	Record Source Detail 3
+call	9	General activity properties	Updated by user ID
+call	10	Call properties	Call and meeting type
+call	11	Call properties	Call direction
+call	12	Call properties	Call duration
+call	13	Call properties	Call notes
+call	14	Call properties	Call outcome
+call	15	Call properties	Call source
+call	16	Call properties	Call status
+call	17	Call properties	Call summary
+call	18	Call properties	Call title
+call	19	Call properties	Connected count
+call	20	Call properties	From number
+call	21	Call properties	From number name
+call	22	Call properties	Recording URL
+call	23	Call properties	To number
+call	24	Call properties	To number name
+call	25	Call properties	Tracked terms
+call	26	Call properties	Transcript available
+call	27	Call properties	Voicemail available
+call	28	Call properties	Voicemail count
+meeting	0	General activity properties	Activity assigned to
+meeting	1	General activity properties	Activity created by
+meeting	2	General activity properties	Activity date
+meeting	3	General activity properties	Attached file IDs
+meeting	4	General activity properties	Create date
+meeting	5	General activity properties	Created by user ID
+meeting	6	General activity properties	Last modified date
+meeting	7	General activity properties	Record Source Detail 2
+meeting	8	General activity properties	Record Source Detail 3
+meeting	9	General activity properties	Updated by user ID
+meeting	10	Meeting properties	Call and meeting type
+meeting	11	Meeting properties	Contact first outreach date
+meeting	12	Meeting properties	HubSpot attendees owner IDs
+meeting	13	Meeting properties	Internal meeting notes
+meeting	14	Meeting properties	Location type
+meeting	15	Meeting properties	Meeting description
+meeting	16	Meeting properties	Meeting end time
+meeting	17	Meeting properties	Meeting location
+meeting	18	Meeting properties	Meeting name
+meeting	19	Meeting properties	Meeting outcome
+meeting	20	Meeting properties	Meeting source
+meeting	21	Meeting properties	Meeting start time
+meeting	22	Meeting properties	Outcome canceled count
+meeting	23	Meeting properties	Outcome completed count
+meeting	24	Meeting properties	Outcome no show count
+meeting	25	Meeting properties	Outcome rescheduled count
+meeting	26	Meeting properties	Time to book meeting from first contact
+meeting	27	Meeting properties	Video conference URL
+task	0	General activity properties	Activity assigned to
+task	1	General activity properties	Activity created by
+task	2	General activity properties	Activity date
+task	3	General activity properties	Attached file IDs
+task	4	General activity properties	Create date
+task	5	General activity properties	Created by user ID
+task	6	General activity properties	Last modified date
+task	7	General activity properties	Record Source Detail 2
+task	8	General activity properties	Record Source Detail 3
+task	9	General activity properties	Updated by user ID
+task	10	Task properties	Completed at
+task	11	Task properties	Contact time zone
+task	12	Task properties	Due date
+task	13	Task properties	Notes
+task	14	Task properties	Priority
+task	15	Task properties	Queue
+task	16	Task properties	Reminder
+task	17	Task properties	Task status
+task	18	Task properties	Task title
+task	19	Task properties	Task type
+note	0	General activity properties	Activity assigned to
+note	1	General activity properties	Activity created by
+note	2	General activity properties	Activity date
+note	3	General activity properties	Attached file IDs
+note	4	General activity properties	Create date
+note	5	General activity properties	Created by user ID
+note	6	General activity properties	Last modified date
+note	7	General activity properties	Record Source Detail 2
+note	8	General activity properties	Record Source Detail 3
+note	9	General activity properties	Updated by user ID
+note	10	Note properties	Note body
+email	0	General activity properties	Activity assigned to
+email	1	General activity properties	Activity created by
+email	2	General activity properties	Activity date
+email	3	General activity properties	Attached file IDs
+email	4	General activity properties	Create date
+email	5	General activity properties	Created by user ID
+email	6	General activity properties	Last modified date
+email	7	General activity properties	Record Source Detail 2
+email	8	General activity properties	Record Source Detail 3
+email	9	General activity properties	Updated by user ID
+email	10	Email properties	Attached video name
+email	11	Email properties	Attached video opened
+email	12	Email properties	Attached video watched
+email	13	Email properties	Email BCC address
+email	14	Email properties	Email body
+email	15	Email properties	Email click rate
+email	16	Email properties	Email direction
+email	17	Email properties	Email from address
+email	18	Email properties	Email is member of forwarded subthread
+email	19	Email properties	Email open rate
+email	20	Email properties	Email reply rate
+email	21	Email properties	Email send status
+email	22	Email properties	Email subject
+email	23	Email properties	Email to address
+email	24	Email properties	Number of email clicks
+email	25	Email properties	Number of email opens
+email	26	Email properties	Number of email replies
+email	27	Email properties	Number of emails sent
+email	28	Email properties	Sequence ID
+communication	0	General activity properties	Activity assigned to
+communication	1	General activity properties	Activity created by
+communication	2	General activity properties	Activity date
+communication	3	General activity properties	Attached file IDs
+communication	4	General activity properties	Create date
+communication	5	General activity properties	Created by user ID
+communication	6	General activity properties	Last modified date
+communication	7	General activity properties	Record Source Detail 2
+communication	8	General activity properties	Record Source Detail 3
+communication	9	General activity properties	Updated by user ID
+communication	10	Communication properties	Channel type
+communication	11	Communication properties	Communication body
+communication	12	Communication properties	Conversations first message timestamp
+communication	13	Communication properties	Logged from
+postal_mail	0	General activity properties	Activity assigned to
+postal_mail	1	General activity properties	Activity created by
+postal_mail	2	General activity properties	Activity date
+postal_mail	3	General activity properties	Attached file IDs
+postal_mail	4	General activity properties	Create date
+postal_mail	5	General activity properties	Created by user ID
+postal_mail	6	General activity properties	Last modified date
+postal_mail	7	General activity properties	Record Source Detail 2
+postal_mail	8	General activity properties	Record Source Detail 3
+postal_mail	9	General activity properties	Updated by user ID
+postal_mail	10	Postal mail properties	Body preview
+postal_mail	11	Postal mail properties	Postal mail body
