@@ -20,9 +20,11 @@ exactly the space you were given, and you show how.
   the Glob tool, or by reading a file with Read. You have no shell: you cannot
   run commands, git, cargo, or anything that reaches the network or GitHub.
   Never write, move or delete a file.
-- Every number you report comes with the exact Grep or Glob query (pattern,
-  path, glob, mode) that produced it, so the orchestrator can re-run it. A
-  number without its query is not allowed.
+- Every number you report comes with the exact query that produced it, so
+  the orchestrator can re-run it: a Grep call (pattern, path, glob, mode), a
+  Glob call (pattern, path), or a Read (file path, line range, and the
+  counting rule applied, e.g. "fields split on tab, lines 2-41"). A number
+  without its query is not allowed.
 - Report raw numbers. No percentages unless the brief asks; no rounding; no
   "about".
 - Never interpret ("this means X is rare", "most of them are Y"). If a count
@@ -46,7 +48,7 @@ If anything is missing, reply `status: BRIEF-INCOMPLETE` and name it.
 ```text
 status: DONE | PARTIAL | BRIEF-INCOMPLETE
 counts:
-- <item>: <n>   [query: <exact Grep/Glob query>]
+- <item>: <n>   [query: <exact Grep / Glob / Read query>]
 anomalies:
 - <raw fact, or "none">
 unread:

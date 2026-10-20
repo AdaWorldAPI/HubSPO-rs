@@ -22,7 +22,7 @@ cargo; the orchestrating session builds once).
 ## The five Haiku cards
 
 - `harvest-scout`: candidates as `path:line` + the matching line.
-- `census-counter`: raw counts, each with the exact Grep or Glob query.
+- `census-counter`: raw counts, each with the exact Grep, Glob or Read query.
 - `quote-harvester`: verbatim text with line numbers; FOUND / NOT FOUND.
 - `substrate-mapper`: a fact map of one module or directory, written to one
   file in the session scratchpad.
