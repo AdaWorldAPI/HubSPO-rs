@@ -241,14 +241,22 @@
   the generated file and the table disagree.
 - Each row: internal name, type, field type, group, sensitivity, hidden,
   label. Activity rows carry names only.
+- Each row also stores a slot: `lane n` (mask position `n`, 1..=255) or
+  `packed` (the object's packed run, mask position 0 in every object).
+  New rows in a group listed in `PACKED_GROUPS` are packed; stored slots
+  never move (`ISS-FIELD-MASK-256`, resolved by operator decision).
 - `hubspo-schema::HubSpoClassView` keys each table by concept alone
-  (classview `0x0000`): contact 256 (+16 unaddressable), company 159,
-  deal 97, ticket 107, lead 93, product 30, line item 58, call 16,
-  meeting 29, task 8, note 4, email 15, commerce payment 92 fields (pinned
-  `== N`). Field `n` is table position `n`; the predicate is
-  `hubspot-property:<object>/<name>`.
-- Contact exceeds the 256 positions a `WideFieldMask` can address
-  (`ISS-FIELD-MASK-256`). Every stated sensitivity is `non_sensitive`.
+  (classview `0x0000`). Fields, run included: contact 246 (27 packed),
+  company 160, deal 98, ticket 108, lead 94, product 31, line item 59,
+  call 17, meeting 30, task 9, note 5, email 16, commerce payment 93
+  (pinned `== N`). Field 0 is the packed run, field `n` is lane `n`; the
+  predicate is `hubspot-property:<object>/<name>`. Every contact property
+  has a mask position. Every stated sensitivity is `non_sensitive`; the
+  run's RBAC grain is open (`ISS-PACKED-RUN-RBAC-GRAIN`).
+- Slot disable runs (2026-10-20): packed-group routing, dense lanes,
+  lanes-only fields, packed position 0, run at field 0 all measured red.
+  Breaking merge's own lane-overflow check left the test green: the table
+  check refuses the 256th lane on its own, so that test pins the backstop.
 - Provisional source (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20
   from the pages of that day; a re-run on the same pages left the table
   byte-identical.
@@ -256,6 +264,59 @@
   red (truncated page, guide table filter, non-blanking merge, append-only
   merge, duplicate name, name shape, past-255 addressing, field cap,
   shared concept, name predicate, generated-file drift).
+
+## The documented API surface (D-API-0)
+
+- `scripts/fetch-hubspot-surface.sh` fetches the API-reference overview page
+  of each version tab (`legacy`, `latest`, `2027-03-beta`) into
+  `.cache/hubspot-surface` (gitignored). Each page embeds its tab's whole
+  navigation; `hubspo-harvest surface` reads every operation entry (title,
+  `specs/<v>/<spec>.json METHOD /path`, page) into
+  `data/hubspot/api_surface.tsv` (version, area, method, path, specs, title,
+  page). Only coordinates and titles are committed.
+- 2,279 endpoints: legacy 1,194, 2026-09 980, 2027-03-beta 105. The docs
+  list 2,325 entries; 28 endpoints (generic `{objectType}` ones) are listed
+  under several specs and are one row each, with all specs kept.
+- `hubspo-harvest coverage <surface.tsv> <harvest.json>` counts, per version
+  and area, the operations the stable OpenAPI harvest (`report`, 2026-03
+  specs) holds by method and unversioned path, and those whose reference
+  page also exists under the current tab. A legacy endpoint's path often
+  changes shape in 2026-09 (`/crm/v3/objects/x` → `/crm/objects/2026-09/x`),
+  so the page slug, not the path, is what says it is the same function.
+- Measured 2026-10-20 (`coverage data/hubspot/api_surface.tsv
+  .cache/harvest.json`): about **1,518 distinct functions** — 980 current,
+  440 legacy-only, 98 beta-only. The stable harvest holds 912 of the 980
+  current ones.
+
+| area | current (2026-09) | in stable harvest | legacy only | beta only |
+|---|---|---|---|---|
+| crm | 506 | 473 | 212 | 3 |
+| cms | 208 | 208 | 77 | 15 |
+| marketing | 74 | 71 | 43 | 19 |
+| automation | 31 | 24 | 20 | 10 |
+| revenue | 22 | 22 | 0 | 28 |
+| account | 42 | 41 | 6 | 0 |
+| conversations | 22 | 6 | 25 | 0 |
+| reporting | 0 | 0 | 13 | 22 |
+| files | 6 | 6 | 13 | 0 |
+| webhooks-journal | 19 | 19 | 0 | 0 |
+| communication-preferences | 6 | 6 | 12 | 0 |
+| webhooks | 8 | 0 | 9 | 0 |
+| events | 12 | 12 | 0 | 0 |
+| app-management | 11 | 11 | 0 | 0 |
+| authentication | 3 | 3 | 5 | 0 |
+| meetings | 6 | 6 | 0 | 1 |
+| scheduler | 0 | 0 | 5 | 0 |
+| data-studio | 4 | 4 | 0 | 0 |
+| **total** | 980 | 912 | 440 | 98 |
+
+- "Legacy only" is a count of reference pages with no current counterpart;
+  it includes superseded versions of a function whose page was renamed, so
+  it is an upper bound on legacy-only functions.
+- 7 surface tests; six disable runs measured red (damaged entry, method
+  check, spec merge, version-segment replacement, `v<digits>` rule,
+  page-slug match). A Haiku `census-counter` run confirmed the per-version
+  counts (AGENT_LOG 2026-10-20).
 
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
 

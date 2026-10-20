@@ -144,6 +144,7 @@
 
 | D-id | Deliverable | Size | Status | Evidence |
 |---|---|---|---|---|
+| D-API-0 | The documented API surface as data: every operation of legacy, 2026-09 and 2027-03-beta, with coverage per area (the map of functions to rebuild) | M | In PR | 2026-10-20: `hubspo-harvest surface`/`coverage`, `scripts/fetch-hubspot-surface.sh`, `data/hubspot/api_surface.tsv` — 2,279 endpoints (legacy 1,194, 2026-09 980, beta 105; 2,325 doc entries, generic endpoints listed by several specs); ~1,518 distinct functions (980 current + 440 legacy-only + 98 beta-only). Table in LATEST_STATE. Linear claim: EXO-50 `session_01PPcakjk7ioQsnasmNDtc5z/002` (D-API-SURFACE) |
 | D-API-1 | `/crm/v3/objects/*` CRUD + batch + search on the façade; association v4; properties; pipelines; owners | XL | Queued |  |
 | D-API-2 | Webhook subscriptions (outbound) from version deltas | M | Queued |  |
 | D-API-3 | OAuth apps / private app tokens mapped to RBAC actors with delegation | M | Queued |  |

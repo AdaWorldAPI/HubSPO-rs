@@ -3,9 +3,16 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-PACKED-RUN-RBAC-GRAIN — a packed run is granted as a whole, and contact's holds personal attributes
+
+- **Status:** OPEN (found 2026-10-20 by ISS-FIELD-MASK-256's resolution; input for D-IAM-3)
+- **Where:** `hubspo-harvest::positions::PACKED_GROUPS`, `hubspo-schema::HubSpoClassView` (field 0).
+- **What:** a role granted field 0 of contact sees all 27 packed properties; one not granted it sees none. HubSpot's `facebook_ads_properties` group holds `date_of_birth`, `gender`, `marital_status` and `military_status` next to `school` and `seniority`, so a role cannot get the job fields without the personal ones. HubSpot itself marks all of them `non_sensitive`; DSGVO may not.
+- **Options for D-IAM-3:** (a) accept the grain and grant the run only to roles that may see all of it; (b) a second, run-internal mask keyed by table position (the run already stores positions); (c) keep the personal attributes out of the run by narrowing `PACKED_GROUPS` to names, with another group packed instead. Only (c) changes stored slots, and only before the first tenant data is written.
+
 ## ISS-FIELD-MASK-256 — HubSpot's contact object has more standard properties than a field mask can address
 
-- **Status:** OPEN (found 2026-10-20 by D-ONT-6; operator decision needed)
+- **Status:** RESOLVED 2026-10-20 — operator chose option (c). Every object's field 0 is a packed run; `hubspo-harvest::positions::PACKED_GROUPS` sends contact's `facebook_ads_properties` and `socialmediainformation` groups there (27 properties), leaving 245 lanes. Slots are stored in the table and never move. RBAC grain follows: see `ISS-PACKED-RUN-RBAC-GRAIN`.
 - **Where:** lance-graph-contract `WideFieldMask` (positions are `u8`, cap 256); `hubspo-schema::HubSpoClassView`.
 - **What:** HubSpot's contact object-definition page defines 272 standard properties. Positions 256..271 are in the table, but no `WideFieldMask` can reach them, so no role can be granted them (RBAC fails closed: the field is absent from the wire). `HubSpoClassView` exposes the first 256 as fields and lists the rest via `unaddressable`, pinned at 16. Tenant custom properties (H-ADR-3) have the same ceiling. Company is next at 159.
 - **Options:** (a) widen `WideFieldMask` positions upstream (a contract change; surface to the operator, do not file); (b) split a class's properties into two masks (core + extended); (c) move rarely-used properties to a packed tenant run (P-CUSTOM-1 measured both shapes).
