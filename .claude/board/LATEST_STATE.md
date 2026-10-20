@@ -313,7 +313,9 @@
 - "Legacy only" is a count of reference pages with no current counterpart;
   it includes superseded versions of a function whose page was renamed, so
   it is an upper bound on legacy-only functions.
-- 7 surface tests. A Haiku `census-counter` run confirmed the per-version
+- 7 surface tests; six disable runs measured red (damaged entry, method
+  check, spec merge, version-segment replacement, `v<digits>` rule,
+  page-slug match). A Haiku `census-counter` run confirmed the per-version
   counts (AGENT_LOG 2026-10-20).
 
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
