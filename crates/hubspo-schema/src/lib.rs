@@ -10,8 +10,9 @@
 //! [`HubSpoClassView`] is HubSPO-rs's [`ClassView`]: for each concept a
 //! HubSpot object type converges on, its field set is that type's standard
 //! property table from `hubspo-generated`. Field position `n` is the
-//! property's position in the table, which is append-only, so a position
-//! held in a `WideFieldMask` keeps its meaning.
+//! property's lane `n` (stored in the table, append-only), so a position held
+//! in a `WideFieldMask` keeps its meaning. Field 0 is the object's packed
+//! run: one position for every property the table puts there.
 //!
 //! Keyed by concept alone (`ClassId = u16`): CRM keys carry classview
 //! `0x0000` (operator decision 2026-10-20, `ISS-CRM-KEY-CLASSVIEW`), so the
@@ -26,18 +27,19 @@
 //! where the source gives none (the activity guides list names only).
 //!
 //! **The 256-position ceiling.** `WideFieldMask` positions are `u8`, so a
-//! mask reaches positions `0..256` only. HubSpot's contact object has more
-//! standard properties than that; the view exposes the first 256 as fields
-//! and reports the rest through [`HubSpoClassView::unaddressable`], so no
-//! role can be granted a property silently dropped from its mask
-//! (`ISS-FIELD-MASK-256`).
+//! mask reaches positions `0..256` only, and HubSpot's contact object has 272
+//! standard properties. Properties in rarely queried groups share the packed
+//! run at field 0 (operator decision 2026-10-20, `ISS-FIELD-MASK-256`;
+//! `hubspo-harvest::positions::PACKED_GROUPS`). A role granted field 0 sees
+//! every packed property of the object; one not granted it sees none, so a
+//! packed property is never reachable through any other position.
 //!
 //! Object types whose HubSpot name has no concept, or shares one, are not in
 //! the ClassView; their tables are generated all the same. Invoice and Order
 //! converge with Quote on one concept, and one concept cannot hold three
 //! tables' positions.
 
-use hubspo_generated::standard_properties::{self, StandardProperty};
+use hubspo_generated::standard_properties::{self, PACKED_RUN_POSITION, Slot, StandardProperty};
 use lance_graph_contract::class_view::{ClassId, ClassView};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 
@@ -59,8 +61,12 @@ pub const OBJECT_CONCEPT_NAMES: &[(&str, &str)] = &[
     ("commerce_payment", "CommercePayment"),
 ];
 
-/// The positions a `WideFieldMask` can address (`u8`).
-pub const MASK_POSITIONS: usize = 256;
+/// The name of every object's packed-run field (not a HubSpot property name:
+/// `@` cannot occur in one).
+pub const PACKED_RUN_NAME: &str = "@packed";
+
+/// The label of every object's packed-run field.
+pub const PACKED_RUN_LABEL: &str = "Packed properties";
 
 /// The table an object name's concept reads.
 #[derive(Debug, Clone)]
@@ -110,14 +116,20 @@ impl HubSpoClassView {
                 .iter()
                 .find_map(|(o, t)| (*o == object).then_some(*t))
                 .ok_or(SchemaError::NoTable(object))?;
-            let fields = table
+            // Field 0 is the packed run; lanes are dense from 1 in table
+            // order (the generator checks both).
+            let run = FieldRef::new(
+                format!("hubspot-property:{object}/{PACKED_RUN_NAME}"),
+                PACKED_RUN_LABEL,
+            );
+            let lanes = table
                 .iter()
-                .take(MASK_POSITIONS)
+                .filter(|p| matches!(p.slot, Slot::Lane(_)))
                 .map(|p| {
                     let label = if p.label.is_empty() { p.name } else { p.label };
                     FieldRef::new(format!("hubspot-property:{object}/{}", p.name), label)
-                })
-                .collect();
+                });
+            let fields = std::iter::once(run).chain(lanes).collect();
             skins.push(Skin {
                 concept,
                 object,
@@ -144,23 +156,31 @@ impl HubSpoClassView {
         self.skin(class).map(|s| s.object)
     }
 
-    /// The field position of the property with internal name `name` on
-    /// `class`. `None` when the class has no such property, or when its
-    /// position is past what a mask can address ([`Self::unaddressable`]).
+    /// The slot of the property with internal name `name` on `class`.
     #[must_use]
-    pub fn position_of(&self, class: ClassId, name: &str) -> Option<u8> {
+    pub fn slot_of(&self, class: ClassId, name: &str) -> Option<Slot> {
         self.standard(class)?
             .iter()
             .find(|p| p.name == name)
-            .and_then(|p| u8::try_from(p.position).ok())
+            .map(|p| p.slot)
     }
 
-    /// The standard properties of `class` past position 255: in the table,
-    /// but outside every `WideFieldMask`, so no grant can reach them.
+    /// The field position that grants the property `name` on `class`: its
+    /// lane, or [`PACKED_RUN_POSITION`] for a packed property.
     #[must_use]
-    pub fn unaddressable(&self, class: ClassId) -> &'static [StandardProperty] {
+    pub fn position_of(&self, class: ClassId, name: &str) -> Option<u8> {
+        self.slot_of(class, name).map(|slot| match slot {
+            Slot::Lane(n) => n,
+            Slot::Packed => PACKED_RUN_POSITION,
+        })
+    }
+
+    /// The properties of `class` held in its packed run, in table order.
+    pub fn packed(&self, class: ClassId) -> impl Iterator<Item = &'static StandardProperty> {
         self.standard(class)
-            .map_or(&[], |t| t.get(MASK_POSITIONS..).unwrap_or(&[]))
+            .unwrap_or(&[])
+            .iter()
+            .filter(|p| p.slot == Slot::Packed)
     }
 
     /// Every concept the view covers, in table order.
@@ -199,9 +219,10 @@ mod tests {
         hubspo_port::class_id(name).expect("name resolves")
     }
 
-    /// Field counts per object type, pinned exactly (`== N`, plan gate G1).
-    /// They move only when the table is re-harvested, and the diff of this
-    /// test then shows which object grew.
+    /// Field counts (packed run included) and packed counts per object
+    /// type, pinned exactly (`== N`, plan gate G1). They move only when the
+    /// table is re-harvested, and the diff of this test then shows which
+    /// object grew.
     #[test]
     fn field_counts_are_pinned() {
         let v = view();
@@ -209,48 +230,61 @@ mod tests {
             .iter()
             .map(|&(o, n)| {
                 let c = concept(n);
-                (o, v.field_count(c), v.unaddressable(c).len())
+                (o, v.field_count(c), v.packed(c).count())
             })
             .collect();
         assert_eq!(
             counts,
             vec![
-                ("contact", 256, 16),
-                ("company", 159, 0),
-                ("deal", 97, 0),
-                ("ticket", 107, 0),
-                ("lead", 93, 0),
-                ("product", 30, 0),
-                ("line_item", 58, 0),
-                ("call", 16, 0),
-                ("meeting", 29, 0),
-                ("task", 8, 0),
-                ("note", 4, 0),
-                ("email", 15, 0),
-                ("commerce_payment", 92, 0),
+                ("contact", 246, 27),
+                ("company", 160, 0),
+                ("deal", 98, 0),
+                ("ticket", 108, 0),
+                ("lead", 94, 0),
+                ("product", 31, 0),
+                ("line_item", 59, 0),
+                ("call", 17, 0),
+                ("meeting", 30, 0),
+                ("task", 9, 0),
+                ("note", 5, 0),
+                ("email", 16, 0),
+                ("commerce_payment", 93, 0),
             ]
         );
     }
 
     #[test]
-    fn field_n_is_table_position_n() {
+    fn field_0_is_the_run_and_field_n_is_lane_n() {
         let v = view();
         for c in v.concepts() {
-            let table = v.standard(c).unwrap();
             let object = v.object(c).unwrap();
-            for (n, f) in v.fields(c).iter().enumerate() {
-                let p = &table[n];
-                assert_eq!(usize::from(p.position), n);
+            let fields = v.fields(c);
+            assert_eq!(
+                fields[0].predicate_iri,
+                format!("hubspot-property:{object}/@packed")
+            );
+            assert_eq!(
+                v.field_label(c, PACKED_RUN_POSITION),
+                Some(PACKED_RUN_LABEL)
+            );
+            let mut lanes = 0;
+            for p in v.standard(c).unwrap() {
+                let Slot::Lane(n) = p.slot else {
+                    assert_eq!(v.position_of(c, p.name), Some(PACKED_RUN_POSITION));
+                    continue;
+                };
+                lanes += 1;
+                let f = &fields[usize::from(n)];
                 assert_eq!(
                     f.predicate_iri,
                     format!("hubspot-property:{object}/{}", p.name)
                 );
                 let label = if p.label.is_empty() { p.name } else { p.label };
                 assert_eq!(f.label, label);
-                let n8 = u8::try_from(n).unwrap();
-                assert_eq!(v.field_label(c, n8), Some(label));
-                assert_eq!(v.position_of(c, p.name), Some(n8));
+                assert_eq!(v.field_label(c, n), Some(label));
+                assert_eq!(v.position_of(c, p.name), Some(n));
             }
+            assert_eq!(fields.len(), lanes + 1);
         }
     }
 
@@ -281,7 +315,7 @@ mod tests {
         assert!(!all.contains(&pipeline));
         assert!(v.fields(pipeline).is_empty());
         assert_eq!(v.standard(pipeline), None);
-        assert!(v.unaddressable(pipeline).is_empty());
+        assert_eq!(v.packed(pipeline).count(), 0);
         assert_eq!(v.position_of(pipeline, "amount"), None);
     }
 
@@ -331,24 +365,21 @@ mod tests {
     }
 
     #[test]
-    fn positions_past_255_are_reported_never_addressed() {
+    fn every_contact_property_has_a_mask_position() {
         let v = view();
         let contact = concept("Contact");
-        let past = v.unaddressable(contact);
-        assert_eq!(past.len(), 16);
-        assert_eq!(past[0].position, 256);
-        for p in past {
-            assert_eq!(v.position_of(contact, p.name), None);
-            assert!(
-                v.standard(contact)
-                    .unwrap()
-                    .iter()
-                    .any(|q| q.name == p.name)
-            );
+        let table = v.standard(contact).unwrap();
+        assert_eq!(table.len(), 272, "more than a mask's 256 positions");
+        for p in table {
+            assert!(v.position_of(contact, p.name).is_some(), "{}", p.name);
         }
-        // Silence twin: a table under the ceiling reports nothing.
-        assert!(v.unaddressable(concept("Deal")).is_empty());
-        assert_eq!(v.fields(contact).len(), MASK_POSITIONS);
+        let packed: Vec<&str> = v.packed(contact).map(|p| p.name).collect();
+        assert!(packed.contains(&"twitterbio"));
+        assert!(packed.contains(&"school"));
+        // Lanes stay one per property: email is not in the run.
+        assert_ne!(v.position_of(contact, "email"), Some(PACKED_RUN_POSITION));
+        // Silence twin: an object with no packed group has an empty run.
+        assert_eq!(v.packed(concept("Deal")).count(), 0);
     }
 
     #[test]

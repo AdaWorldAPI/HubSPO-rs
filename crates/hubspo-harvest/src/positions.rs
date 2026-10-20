@@ -13,6 +13,18 @@
 //! property that disappears from HubSpot's pages keeps its position. A merge
 //! refreshes the descriptive columns of a known name, but never blanks one.
 //!
+//! **Slots.** A `WideFieldMask` addresses positions `0..256` only (`u8`),
+//! and HubSpot's contact object has 272 standard properties. So each row
+//! also carries a slot: `lane n` is the property's own mask position `n`
+//! (1..=255), `packed` puts it in the object's packed run, which is one mask
+//! position (0, in every object, so it never moves) holding many properties
+//! (operator decision 2026-10-20, `ISS-FIELD-MASK-256`). A new property is
+//! packed when its group is in [`PACKED_GROUPS`], otherwise it takes the next
+//! lane; a stored slot never changes. P-CUSTOM-1 measured the trade: a
+//! packed run writes cheaply and folds 15-35x slower than a lane, so it is
+//! for properties that are rarely filtered or folded. RBAC grants the whole
+//! run at once.
+//!
 //! Sources (operator decision 2026-10-20: provisional, from public docs):
 //! HubSpot's object-definition pages give every column ([`crate::objdef`]);
 //! the activity guides give names only, so those rows carry empty
@@ -50,6 +62,33 @@ pub const OBJECTS: &[&str] = &[
     "order",
 ];
 
+/// Property groups whose new properties go into the packed run, per object.
+///
+/// A policy pin, not a measurement: without portal usage data, the groups
+/// chosen are the ones that hold third-party enrichment (ad-platform
+/// demographics, social-network profile fields), which list filters and
+/// reports rarely touch. Contact needs at least 17 packed properties to fit
+/// in 255 lanes; these two groups pack 27.
+pub const PACKED_GROUPS: &[(&str, &str)] = &[
+    ("contact", "facebook_ads_properties"),
+    ("contact", "socialmediainformation"),
+];
+
+/// The mask position of every object's packed run.
+pub const PACKED_RUN_POSITION: u8 = 0;
+
+/// The highest lane: `WideFieldMask` positions are `u8`.
+pub const MAX_LANE: u8 = u8::MAX;
+
+/// Where a property's value lives, and so which mask position grants it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Slot {
+    /// Its own column, at this mask position (`1..=MAX_LANE`).
+    Lane(u8),
+    /// The object's packed run, at mask position [`PACKED_RUN_POSITION`].
+    Packed,
+}
+
 /// The widest table the generated code can hold: positions are `u16`.
 ///
 /// A `WideFieldMask` addresses only positions `0..256` (they are `u8`), and
@@ -75,15 +114,17 @@ pub struct Property {
 pub struct Row {
     pub object: String,
     pub position: usize,
+    pub slot: Slot,
     pub property: Property,
 }
 
 /// Why a table or a merge was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TableError {
-    /// A line does not have nine tab-separated fields.
+    /// A line does not have ten tab-separated fields.
     Malformed { line: usize },
-    /// The position is not a number, or `hidden` is not `true`/`false`.
+    /// The position or slot is not a number (or `packed`), or `hidden` is
+    /// not `true`/`false`.
     BadValue { line: usize },
     /// The object is not in [`OBJECTS`].
     UnknownObject(String),
@@ -99,6 +140,15 @@ pub enum TableError {
     BadText { object: String, name: String },
     /// More than [`MAX_POSITIONS`] properties for one object.
     TooWide { object: String },
+    /// An object's lanes are not exactly `1..=n` in file order.
+    LanesNotDense {
+        object: String,
+        expected: u8,
+        got: u8,
+    },
+    /// More than [`MAX_LANE`] lanes for one object: add a group to
+    /// [`PACKED_GROUPS`].
+    TooManyLanes { object: String },
 }
 
 /// Is `name` an internal property name: non-empty `[a-z0-9_]`?
@@ -125,6 +175,7 @@ pub fn parse(tsv: &str) -> Result<Vec<Row>, TableError> {
         let [
             object,
             position,
+            slot,
             name,
             kind,
             field_type,
@@ -138,6 +189,10 @@ pub fn parse(tsv: &str) -> Result<Vec<Row>, TableError> {
         };
         let bad = || TableError::BadValue { line: i + 1 };
         let position = position.parse().map_err(|_| bad())?;
+        let slot = match slot {
+            "packed" => Slot::Packed,
+            n => Slot::Lane(n.parse().map_err(|_| bad())?),
+        };
         let hidden = match hidden {
             "true" => true,
             "false" => false,
@@ -146,6 +201,7 @@ pub fn parse(tsv: &str) -> Result<Vec<Row>, TableError> {
         rows.push(Row {
             object: object.to_string(),
             position,
+            slot,
             property: Property {
                 name: name.to_string(),
                 kind: kind.to_string(),
@@ -181,6 +237,22 @@ fn check(rows: &[Row]) -> Result<(), TableError> {
             return Err(TableError::TooWide {
                 object: object.to_string(),
             });
+        }
+        let mut lanes: u16 = 0;
+        for r in &mine {
+            if let Slot::Lane(got) = r.slot {
+                lanes += 1;
+                let expected = u8::try_from(lanes).map_err(|_| TableError::TooManyLanes {
+                    object: object.to_string(),
+                })?;
+                if got != expected {
+                    return Err(TableError::LanesNotDense {
+                        object: object.to_string(),
+                        expected,
+                        got,
+                    });
+                }
+            }
         }
         for (expected, r) in mine.iter().enumerate() {
             if r.position != expected {
@@ -219,6 +291,10 @@ pub fn merge(rows: &[Row], object: &str, found: &[Property]) -> Result<Vec<Row>,
     }
     let mut out = rows.to_vec();
     let mut next = rows.iter().filter(|r| r.object == object).count();
+    let mut lanes = rows
+        .iter()
+        .filter(|r| r.object == object && matches!(r.slot, Slot::Lane(_)))
+        .count();
     for p in found {
         if let Some(r) = out
             .iter_mut()
@@ -238,9 +314,18 @@ pub fn merge(rows: &[Row], object: &str, found: &[Property]) -> Result<Vec<Row>,
             }
             q.hidden |= p.hidden;
         } else {
+            let slot = if PACKED_GROUPS.contains(&(object, p.group.as_str())) {
+                Slot::Packed
+            } else {
+                lanes += 1;
+                Slot::Lane(u8::try_from(lanes).map_err(|_| TableError::TooManyLanes {
+                    object: object.to_string(),
+                })?)
+            };
             out.push(Row {
                 object: object.to_string(),
                 position: next,
+                slot,
                 property: p.clone(),
             });
             next += 1;
@@ -260,9 +345,13 @@ pub fn to_tsv(rows: &[Row]) -> String {
         let p = &r.property;
         let _ = writeln!(
             s,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             r.object,
             r.position,
+            match r.slot {
+                Slot::Lane(n) => n.to_string(),
+                Slot::Packed => "packed".to_string(),
+            },
             p.name,
             p.kind,
             p.field_type,
@@ -291,8 +380,10 @@ pub fn emit(rows: &[Row]) -> String {
          /// activity guides give names only.\n\
          #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
          pub struct StandardProperty {\n\
-         \x20   /// Field position: the bit in the object's `WideFieldMask`, if below 256.\n\
+         \x20   /// Table position: the property's identity, append-only.\n\
          \x20   pub position: u16,\n\
+         \x20   /// Where the value lives, and so which mask position grants it.\n\
+         \x20   pub slot: Slot,\n\
          \x20   /// Internal name: the key the API and filters use.\n\
          \x20   pub name: &'static str,\n\
          \x20   /// Value type: `string`, `number`, `datetime`, `enumeration`, ...\n\
@@ -307,7 +398,19 @@ pub fn emit(rows: &[Row]) -> String {
          \x20   pub hidden: bool,\n\
          \x20   /// Display label.\n\
          \x20   pub label: &'static str,\n\
-         }\n",
+         }\n\
+         \n\
+         /// Where a property's value lives.\n\
+         #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
+         pub enum Slot {\n\
+         \x20   /// Its own column, at this `WideFieldMask` position (`1..=255`).\n\
+         \x20   Lane(u8),\n\
+         \x20   /// The object's packed run, at mask position [`PACKED_RUN_POSITION`].\n\
+         \x20   Packed,\n\
+         }\n\
+         \n\
+         /// The mask position of every object's packed run.\n\
+         pub const PACKED_RUN_POSITION: u8 = 0;\n",
     );
     for &object in OBJECTS {
         let _ = write!(
@@ -319,8 +422,16 @@ pub fn emit(rows: &[Row]) -> String {
             let p = &r.property;
             let _ = writeln!(
                 s,
-                "    StandardProperty {{ position: {}, name: {:?}, kind: {:?}, field_type: {:?}, group: {:?}, sensitivity: {:?}, hidden: {}, label: {:?} }},",
-                r.position, p.name, p.kind, p.field_type, p.group, p.sensitivity, p.hidden, p.label
+                "    StandardProperty {{ position: {}, slot: Slot::{:?}, name: {:?}, kind: {:?}, field_type: {:?}, group: {:?}, sensitivity: {:?}, hidden: {}, label: {:?} }},",
+                r.position,
+                r.slot,
+                p.name,
+                p.kind,
+                p.field_type,
+                p.group,
+                p.sensitivity,
+                p.hidden,
+                p.label
             );
         }
         s.push_str("];\n");
@@ -354,7 +465,10 @@ mod tests {
     }
 
     fn line(object: &str, pos: &str, name: &str) -> String {
-        format!("{object}\t{pos}\t{name}\tstring\ttext\tg\tnon_sensitive\tfalse\tL\n")
+        let lane = pos
+            .parse::<usize>()
+            .map_or(pos.to_string(), |p| (p + 1).to_string());
+        format!("{object}\t{pos}\t{lane}\t{name}\tstring\ttext\tg\tnon_sensitive\tfalse\tL\n")
     }
 
     #[test]
@@ -391,6 +505,59 @@ mod tests {
         assert_eq!(second[0].property.label, "Amount");
     }
 
+    fn grouped(name: &str, group: &str) -> Property {
+        Property {
+            name: name.into(),
+            group: group.into(),
+            ..Property::default()
+        }
+    }
+
+    #[test]
+    fn a_packed_group_takes_no_lane_and_a_stored_slot_never_moves() {
+        let rows = merge(
+            &[],
+            "contact",
+            &[
+                grouped("email", "contactinformation"),
+                grouped("twitterbio", "socialmediainformation"),
+                grouped("firstname", "contactinformation"),
+            ],
+        )
+        .unwrap();
+        let slots: Vec<Slot> = rows.iter().map(|r| r.slot).collect();
+        assert_eq!(slots, [Slot::Lane(1), Slot::Packed, Slot::Lane(2)]);
+        assert_eq!(parse(&to_tsv(&rows)).unwrap(), rows);
+        // A later page moving `email` into a packed group keeps its lane.
+        let again = merge(
+            &rows,
+            "contact",
+            &[grouped("email", "socialmediainformation")],
+        )
+        .unwrap();
+        assert_eq!(again[0].slot, Slot::Lane(1));
+        // Silence twin: the same group on another object is a lane.
+        let deal = merge(&[], "deal", &[grouped("x", "socialmediainformation")]).unwrap();
+        assert_eq!(deal[0].slot, Slot::Lane(1));
+    }
+
+    #[test]
+    fn a_merge_past_the_last_lane_is_refused() {
+        let found: Vec<Property> = (0..=usize::from(MAX_LANE))
+            .map(|i| grouped(&format!("p{i}"), "g"))
+            .collect();
+        assert_eq!(
+            merge(&[], "deal", &found),
+            Err(TableError::TooManyLanes {
+                object: "deal".into()
+            })
+        );
+        assert_eq!(
+            merge(&[], "deal", &found[1..]).map(|r| r.len()),
+            Ok(usize::from(MAX_LANE))
+        );
+    }
+
     #[test]
     fn a_merge_fills_in_a_names_only_row() {
         let guide = merge(&[], "call", &[prop("hs_call_body", "", "")]).unwrap();
@@ -420,7 +587,7 @@ mod tests {
     #[test]
     fn parse_refuses_what_the_generated_code_cannot_hold() {
         assert_eq!(
-            parse(&line("deal", "1", "amount")),
+            parse(&line("deal", "1", "amount").replacen("\t2\t", "\t1\t", 1)),
             Err(TableError::NotDense {
                 object: "deal".into(),
                 expected: 0,
@@ -457,19 +624,45 @@ mod tests {
             parse(&line("deal", "0", "amount").replace("false", "no")),
             Err(TableError::BadValue { line: 1 })
         );
-        let wide: String = (0..=MAX_POSITIONS)
-            .map(|i| line("deal", &i.to_string(), &format!("p{i}")))
-            .collect();
+        let packed = |i: usize| {
+            line("deal", &i.to_string(), &format!("p{i}")).replacen(
+                &format!("\t{}\t", i + 1),
+                "\tpacked\t",
+                1,
+            )
+        };
+        let wide: String = (0..=MAX_POSITIONS).map(packed).collect();
         assert_eq!(
             parse(&wide),
             Err(TableError::TooWide {
                 object: "deal".into()
             })
         );
-        let fits: String = (0..MAX_POSITIONS)
-            .map(|i| line("deal", &i.to_string(), &format!("p{i}")))
-            .collect();
+        let fits: String = (0..MAX_POSITIONS).map(packed).collect();
         assert_eq!(parse(&fits).map(|r| r.len()), Ok(MAX_POSITIONS));
+        // Lanes: dense from 1, at most MAX_LANE.
+        assert_eq!(
+            parse(&line("deal", "0", "amount").replacen("\t1\t", "\t2\t", 1)),
+            Err(TableError::LanesNotDense {
+                object: "deal".into(),
+                expected: 1,
+                got: 2
+            })
+        );
+        let lanes = |n: usize| -> String {
+            (0..n)
+                .map(|i| line("deal", &i.to_string(), &format!("p{i}")))
+                .collect()
+        };
+        assert_eq!(
+            parse(&lanes(usize::from(MAX_LANE) + 1)),
+            Err(TableError::BadValue { line: 256 }),
+            "lane 256 is not a u8"
+        );
+        assert_eq!(
+            parse(&lanes(usize::from(MAX_LANE))).map(|r| r.len()),
+            Ok(usize::from(MAX_LANE))
+        );
     }
 
     #[test]
@@ -478,7 +671,7 @@ mod tests {
         let rs = emit(&rows);
         assert!(rs.starts_with("// @generated"));
         assert!(rs.contains(
-            "pub const DEAL: &[StandardProperty] = &[\n    StandardProperty { position: 0, name: \"amount\", kind: \"number\", field_type: \"\", group: \"\", sensitivity: \"\", hidden: false, label: \"Amount \\\"net\\\"\" },\n];"
+            "pub const DEAL: &[StandardProperty] = &[\n    StandardProperty { position: 0, slot: Slot::Lane(1), name: \"amount\", kind: \"number\", field_type: \"\", group: \"\", sensitivity: \"\", hidden: false, label: \"Amount \\\"net\\\"\" },\n];"
         ));
         assert!(rs.contains("pub const CONTACT: &[StandardProperty] = &[\n];"));
         assert_eq!(rs.matches("    (\"").count(), OBJECTS.len());

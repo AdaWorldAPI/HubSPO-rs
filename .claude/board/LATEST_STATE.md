@@ -241,14 +241,18 @@
   the generated file and the table disagree.
 - Each row: internal name, type, field type, group, sensitivity, hidden,
   label. Activity rows carry names only.
+- Each row also stores a slot: `lane n` (mask position `n`, 1..=255) or
+  `packed` (the object's packed run, mask position 0 in every object).
+  New rows in a group listed in `PACKED_GROUPS` are packed; stored slots
+  never move (`ISS-FIELD-MASK-256`, resolved by operator decision).
 - `hubspo-schema::HubSpoClassView` keys each table by concept alone
-  (classview `0x0000`): contact 256 (+16 unaddressable), company 159,
-  deal 97, ticket 107, lead 93, product 30, line item 58, call 16,
-  meeting 29, task 8, note 4, email 15, commerce payment 92 fields (pinned
-  `== N`). Field `n` is table position `n`; the predicate is
-  `hubspot-property:<object>/<name>`.
-- Contact exceeds the 256 positions a `WideFieldMask` can address
-  (`ISS-FIELD-MASK-256`). Every stated sensitivity is `non_sensitive`.
+  (classview `0x0000`). Fields, run included: contact 246 (27 packed),
+  company 160, deal 98, ticket 108, lead 94, product 31, line item 59,
+  call 17, meeting 30, task 9, note 5, email 16, commerce payment 93
+  (pinned `== N`). Field 0 is the packed run, field `n` is lane `n`; the
+  predicate is `hubspot-property:<object>/<name>`. Every contact property
+  has a mask position. Every stated sensitivity is `non_sensitive`; the
+  run's RBAC grain is open (`ISS-PACKED-RUN-RBAC-GRAIN`).
 - Provisional source (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20
   from the pages of that day; a re-run on the same pages left the table
   byte-identical.
