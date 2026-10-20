@@ -21,3 +21,4 @@ pub mod objdef;
 pub mod openapi;
 pub mod positions;
 pub mod report;
+pub mod surface;

@@ -7,6 +7,12 @@
 
 (none: no card has failed twice on one kind of task)
 
+## 2026-10-20 — D-API-0 surface census
+
+- **Card:** 1 × `census-counter` on `data/hubspot/api_surface.tsv` (7 counts, Grep only).
+- **Reported:** legacy 1,194; 2026-09 980; 2027-03-beta 105; total 2,279; DELETE 221; multi-spec rows 28; `latest` pages 980.
+- **Checked by re-running (2):** DELETE 221 (`grep -cP` and `awk $3=="DELETE"`), legacy 1,194 — both exact. Wrong: 0. Missed: 0.
+
 ## 2026-10-20 — merge harvest, lance-graph `a1abdf8f..abfa9e2b` (79), OGAR (5), ndarray (2), a2ui-rs (2)
 
 - **Cards:** 4 × `harvest-scout` (git-diff harvest), 1 × `quote-harvester` (D-IAM-3 sources).

@@ -16,6 +16,15 @@
 //! position table with `found.tsv` (the output of `objdef` or `guide`) merged
 //! into `object`, append-only (see `positions`).
 //!
+//! `hubspo-harvest surface <page.html> ...` — prints every operation in the
+//! pages' API-reference navigation, one per line: `version <TAB> area <TAB>
+//! method <TAB> path <TAB> spec <TAB> title <TAB> href` (see `surface`).
+//!
+//! `hubspo-harvest coverage <surface.tsv> <harvest.json>` — prints, per
+//! version and area, how many documented operations a previous `report`
+//! output already holds, and how many also exist under the current version:
+//! `version <TAB> area <TAB> operations <TAB> harvested <TAB> in_current`.
+//!
 //! `hubspo-harvest emit <table.tsv>` — prints the generated Rust for
 //! `hubspo-generated/src/standard_properties.rs`.
 
@@ -24,7 +33,7 @@ use std::process::ExitCode;
 
 use hubspo_harvest::catalog::Catalog;
 use hubspo_harvest::positions::Property;
-use hubspo_harvest::{objdef, positions, report};
+use hubspo_harvest::{objdef, positions, report, surface};
 
 fn read_catalog(path: &Path) -> Result<Catalog, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -149,6 +158,42 @@ fn run(args: &[String]) -> Result<(), String> {
             print!("{}", positions::to_tsv(&merged));
             Ok(())
         }
+        [cmd, pages @ ..] if cmd == "surface" && !pages.is_empty() => {
+            let mut all: Vec<surface::Operation> = Vec::new();
+            for page in pages {
+                let ops = surface::operations(&read(page)?).map_err(|e| format!("{page}: {e:?}"))?;
+                if ops.is_empty() {
+                    return Err(format!("{page}: no operations"));
+                }
+                for op in ops {
+                    surface::merge(&mut all, op);
+                }
+            }
+            print!("{}", surface::to_tsv(&all));
+            Ok(())
+        }
+        [cmd, table, harvest] if cmd == "coverage" => {
+            let ops = surface::parse_tsv(&read(table)?).map_err(|l| format!("{table}: bad line {l}"))?;
+            let report: serde_json::Value =
+                serde_json::from_str(&read(harvest)?).map_err(|e| format!("{harvest}: {e}"))?;
+            let harvested: Vec<(String, String)> = report["apis"]
+                .as_array()
+                .ok_or(format!("{harvest}: no apis"))?
+                .iter()
+                .flat_map(|api| api["operations"].as_array().into_iter().flatten())
+                .filter_map(|o| Some((o["method"].as_str()?.to_string(), o["path"].as_str()?.to_string())))
+                .collect();
+            if harvested.is_empty() {
+                return Err(format!("{harvest}: no operations"));
+            }
+            for c in surface::coverage(&ops, &harvested) {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}",
+                    c.version, c.area, c.operations, c.harvested, c.in_current
+                );
+            }
+            Ok(())
+        }
         [cmd, table] if cmd == "emit" => {
             let rows = read_table(Path::new(table))?;
             print!("{}", positions::emit(&rows));
@@ -156,7 +201,7 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         _ => Err(
             "usage: hubspo-harvest select <index.json> | report <cache-dir> | objdef <page.html> \
-             | guide <page.md> | merge <table.tsv> <object> <found.tsv> | emit <table.tsv>"
+             | guide <page.md> | surface <page.html>... | coverage <surface.tsv> <harvest.json> | merge <table.tsv> <object> <found.tsv> | emit <table.tsv>"
                 .to_string(),
         ),
     }
