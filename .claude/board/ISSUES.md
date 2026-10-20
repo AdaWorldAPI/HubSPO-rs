@@ -3,6 +3,13 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-KB-PROPERTIES-PROVISIONAL — standard property positions come from public labels only
+
+- **Status:** OPEN (opened 2026-10-20 by D-ONT-6; operator chose the provisional source)
+- **Where:** `data/hubspot/standard_properties.tsv`, `hubspo-harvest::kb`, `hubspo-schema::HubSpoClassView`.
+- **What:** HubSpot's public default-property pages give display labels and section headings only: no internal property names, types or options, and no hidden internal properties. So (1) a field is keyed by label, and a label HubSpot renames arrives as a new position; (2) predicates are `hubspot-kb:<object>/<position>`, not internal names; (3) counts are the pages' counts, not a portal's; (4) quotes have no default-property page and no table; `communication` and `postal_mail` have tables but no concept, so no ClassView entry.
+- **Resolves with:** `ISS-ORACLE-PORTAL`. A portal's properties API run through `merge` adds internal names and types at the existing positions; labels that are not on the portal stay where they are (append-only).
+
 ## ISS-LG-GRAPHFLOW-LANCE-PATHS — graph-flow-lance cannot be consumed by git
 
 - **Status:** OPEN (found 2026-10-14, rs-graph-llm `5b54301`; upstream ask)

@@ -230,6 +230,27 @@
 - Not covered yet: per-portal property, pipeline and label definitions
   (needs `ISS-ORACLE-PORTAL`).
 
+## Standard property positions (D-ONT-6, provisional)
+
+- `scripts/fetch-hubspot-kb.sh` fetches HubSpot's public default-property
+  pages into `.cache/hubspot-kb` (gitignored), then runs
+  `hubspo-harvest kb` (labels per page), `merge` (append-only into
+  `data/hubspot/standard_properties.tsv`) and `emit`
+  (`crates/hubspo-generated/src/standard_properties.rs`). A test fails when
+  the generated file and the table disagree.
+- `hubspo-schema::HubSpoClassView` keys each table by concept alone
+  (classview `0x0000`): contact 175, company 93, deal 75, ticket 50, lead 61,
+  product 26, line item 54, call 29, meeting 28, task 20, note 11, email 29
+  fields (pinned `== N`). Field `n` is table position `n`; the predicate is
+  `hubspot-kb:<object>/<position>`.
+- Provisional: labels only, no internal names or types
+  (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20 from the pages of
+  that day; a re-run on the same pages left the table byte-identical.
+- 21 new tests. Nine disable runs measured red (top-level list, alert
+  callouts, link around a label, space between bold runs, append-only merge,
+  dense positions, position-based predicate, shared concept, generated-file
+  drift).
+
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
 
 `probes/p-qdb-1`. Command:
