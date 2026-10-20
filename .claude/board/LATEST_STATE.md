@@ -253,6 +253,10 @@
   predicate is `hubspot-property:<object>/<name>`. Every contact property
   has a mask position. Every stated sensitivity is `non_sensitive`; the
   run's RBAC grain is open (`ISS-PACKED-RUN-RBAC-GRAIN`).
+- Slot disable runs (2026-10-20): packed-group routing, dense lanes,
+  lanes-only fields, packed position 0, run at field 0 all measured red.
+  Breaking merge's own lane-overflow check left the test green: the table
+  check refuses the 256th lane on its own, so that test pins the backstop.
 - Provisional source (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20
   from the pages of that day; a re-run on the same pages left the table
   byte-identical.
