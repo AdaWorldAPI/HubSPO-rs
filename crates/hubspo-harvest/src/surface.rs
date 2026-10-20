@@ -259,6 +259,128 @@ pub fn parse_tsv(tsv: &str) -> Result<Vec<Operation>, usize> {
         .collect()
 }
 
+/// A spec file's family: its name without directory, `.json` and version
+/// suffix (`v3/crm-contacts-v3.json` → `crm-contacts`), so one family
+/// groups a function across versions.
+#[must_use]
+pub fn family(spec: &str) -> String {
+    let name = spec.rsplit('/').next().unwrap_or(spec);
+    let name = name.strip_suffix(".json").unwrap_or(name);
+    match name.rsplit_once("-v") {
+        Some((head, tail)) if is_version(&format!("v{tail}")) || is_version(tail) => {
+            head.to_string()
+        }
+        _ => name.to_string(),
+    }
+}
+
+/// One row of the family → deliverable map: the D-id that owns a spec
+/// family, or `UNPLANNED` with the reason in `note`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapRow {
+    pub family: String,
+    pub deliverable: String,
+    pub note: String,
+}
+
+/// The deliverable value for a family no deliverable owns yet.
+pub const UNPLANNED: &str = "UNPLANNED";
+
+/// Read the map TSV (`family <TAB> deliverable <TAB> note`).
+///
+/// # Errors
+///
+/// The 1-based number of the first line without three fields, with an
+/// empty field, or naming a family twice.
+pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
+    let mut out: Vec<MapRow> = Vec::new();
+    for (i, line) in tsv.lines().enumerate().filter(|(_, l)| !l.is_empty()) {
+        let f: Vec<&str> = line.split('\t').collect();
+        let [family, deliverable, note] = f[..] else {
+            return Err(i + 1);
+        };
+        if [family, deliverable, note].iter().any(|s| s.is_empty())
+            || out.iter().any(|r| r.family == family)
+        {
+            return Err(i + 1);
+        }
+        out.push(MapRow {
+            family: family.into(),
+            deliverable: deliverable.into(),
+            note: note.into(),
+        });
+    }
+    Ok(out)
+}
+
+/// The documented functions one deliverable owns.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DeliverableCount {
+    pub deliverable: String,
+    /// Spec families mapped to it.
+    pub families: usize,
+    /// Endpoints of the current version (`latest` tab).
+    pub current: usize,
+    /// Legacy endpoints whose reference page has no current counterpart.
+    pub legacy_only: usize,
+    /// Beta endpoints whose reference page has no current counterpart.
+    pub beta_only: usize,
+}
+
+impl DeliverableCount {
+    /// Distinct functions: current plus the legacy-only and beta-only ones.
+    #[must_use]
+    pub fn functions(&self) -> usize {
+        self.current + self.legacy_only + self.beta_only
+    }
+}
+
+/// Count the surface per deliverable, in map order. An operation belongs to
+/// the family of its first spec.
+///
+/// # Errors
+///
+/// The first family with operations but no map row.
+pub fn by_deliverable(ops: &[Operation], map: &[MapRow]) -> Result<Vec<DeliverableCount>, String> {
+    let current: std::collections::BTreeSet<String> = ops
+        .iter()
+        .filter(|o| tab(&o.href) == "latest")
+        .map(|o| page_slug(&o.href))
+        .collect();
+    let mut out: Vec<DeliverableCount> = Vec::new();
+    for row in map {
+        if !out.iter().any(|c| c.deliverable == row.deliverable) {
+            out.push(DeliverableCount {
+                deliverable: row.deliverable.clone(),
+                ..DeliverableCount::default()
+            });
+        }
+        if let Some(c) = out.iter_mut().find(|c| c.deliverable == row.deliverable) {
+            c.families += 1;
+        }
+    }
+    for op in ops {
+        let fam = family(op.specs.first().map_or("", String::as_str));
+        let row = map
+            .iter()
+            .find(|r| r.family == fam)
+            .ok_or_else(|| fam.clone())?;
+        let Some(c) = out.iter_mut().find(|c| c.deliverable == row.deliverable) else {
+            return Err(fam);
+        };
+        if tab(&op.href) == "latest" {
+            c.current += 1;
+        } else if !current.contains(&page_slug(&op.href)) {
+            if op.version == "legacy" {
+                c.legacy_only += 1;
+            } else {
+                c.beta_only += 1;
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -436,6 +558,107 @@ mod tests {
         // Silence twin: a legacy page with no current counterpart.
         let alone = [op("legacy", "cms", "GET", "/cms/v3/blogs")];
         assert_eq!(coverage(&alone, &harvested)[0].in_current, 0);
+    }
+
+    #[test]
+    fn family_drops_directory_suffix_and_version() {
+        assert_eq!(family("v3/crm-contacts-v3.json"), "crm-contacts");
+        assert_eq!(family("crm-contacts-v2026-09.json"), "crm-contacts");
+        assert_eq!(
+            family("account-account-info-v2027-03-beta.json"),
+            "account-account-info"
+        );
+        assert_eq!(family("v1/forms.json"), "forms");
+        // `-v` inside a name is not a version.
+        assert_eq!(
+            family("v3/crm-video-conferencing-extension-v3.json"),
+            "crm-video-conferencing-extension"
+        );
+        assert_eq!(
+            family("v3/crm-public-app-feature-flags-v3-v3.json"),
+            "crm-public-app-feature-flags-v3"
+        );
+    }
+
+    #[test]
+    fn deliverables_count_current_legacy_only_and_beta_only() {
+        let mut beta = op("2027-03-beta", "crm", "GET", "/crm/2027-03-beta/new");
+        beta.specs = vec!["crm-new-v2027-03-beta.json".into()];
+        let mut legacy_same = op("legacy", "crm", "GET", "/crm/v3/objects/contacts");
+        legacy_same.specs = vec!["v3/crm-contacts-v3.json".into()];
+        let mut legacy_only = op("legacy", "crm", "GET", "/crm/v3/old");
+        legacy_only.specs = vec!["v3/crm-contacts-v3.json".into()];
+        let mut cur = op("2026-09", "crm", "GET", "/crm/objects/2026-09/contacts");
+        cur.specs = vec!["crm-contacts-v2026-09.json".into()];
+        let ops = [legacy_same, legacy_only, cur, beta];
+        let map =
+            parse_map("crm-contacts\tD-API-1\tcrud\ncrm-new\tUNPLANNED\tnew\nunused\tD-API-1\tx\n")
+                .unwrap();
+        let c = by_deliverable(&ops, &map).unwrap();
+        let rows: Vec<(&str, usize, usize, usize, usize)> = c
+            .iter()
+            .map(|r| {
+                (
+                    r.deliverable.as_str(),
+                    r.families,
+                    r.current,
+                    r.legacy_only,
+                    r.beta_only,
+                )
+            })
+            .collect();
+        assert_eq!(rows, [("D-API-1", 2, 1, 1, 0), ("UNPLANNED", 1, 0, 0, 1)]);
+        assert_eq!(c[0].functions(), 2);
+        // A family without a map row is refused, never dropped.
+        assert_eq!(by_deliverable(&ops, &map[..1]), Err("crm-new".to_string()));
+    }
+
+    #[test]
+    fn map_rows_are_complete_and_unique() {
+        assert_eq!(parse_map("a\tD-X-1\n"), Err(1));
+        assert_eq!(parse_map("a\t\tnote\n"), Err(1));
+        assert_eq!(parse_map("a\tD-X-1\tn\na\tD-X-2\tn\n"), Err(2));
+        assert_eq!(
+            parse_map("a\tD-X-1\tn\nb\tD-X-1\tn\n").map(|m| m.len()),
+            Ok(2)
+        );
+    }
+
+    /// The committed map covers every family of the committed surface, names
+    /// only families that exist, and only D-ids on the status board.
+    #[test]
+    fn the_committed_map_matches_the_surface_and_the_board() {
+        let ops = parse_tsv(include_str!("../../../data/hubspot/api_surface.tsv")).unwrap();
+        let map = parse_map(include_str!("../../../data/hubspot/surface_map.tsv")).unwrap();
+        let counts = by_deliverable(&ops, &map).expect("every family is mapped");
+        assert_eq!(
+            counts
+                .iter()
+                .map(DeliverableCount::functions)
+                .sum::<usize>(),
+            1518
+        );
+        let families: std::collections::BTreeSet<String> = ops
+            .iter()
+            .map(|o| family(o.specs.first().map_or("", String::as_str)))
+            .collect();
+        for row in &map {
+            assert!(
+                families.contains(&row.family),
+                "stale map row {}",
+                row.family
+            );
+        }
+        let board = include_str!("../../../.claude/board/STATUS_BOARD.md");
+        for row in &map {
+            if row.deliverable != UNPLANNED {
+                assert!(
+                    board.contains(&format!("| {} |", row.deliverable)),
+                    "{} is not on the status board",
+                    row.deliverable
+                );
+            }
+        }
     }
 
     #[test]

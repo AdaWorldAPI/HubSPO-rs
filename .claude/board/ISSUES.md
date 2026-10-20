@@ -3,6 +3,13 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-SURFACE-UNPLANNED — 134 documented HubSpot functions belong to no deliverable
+
+- **Status:** OPEN (found 2026-10-20 by D-API-0's deliverable map; operator decision)
+- **Where:** `data/hubspot/surface_map.tsv` rows with `UNPLANNED`.
+- **What:** 19 spec families (134 functions) have no D-id: marketing events (37), app platform (22: CRM cards, extensions, feature flags, uninstall hooks), file manager (19), partner program (14), custom behavioural events (12), portal limits (9), record tags (6), answer-engine optimisation (5), data-studio ingestion (4), deal splits and forecasts (4), API metadata (2).
+- **Decide per group:** a new D-id, folded into an existing one (the map row changes and the test re-pins), or out of scope (the row stays `UNPLANNED` with the reason). Candidates that fit existing work: custom behavioural events as workflow triggers (D-FLOW-2) and report inputs (D-QRY-6); file manager onto spear's document hub; record tags as a ClassView property.
+
 ## ISS-PACKED-RUN-RBAC-GRAIN — a packed run is granted as a whole, and contact's holds personal attributes
 
 - **Status:** OPEN (found 2026-10-20 by ISS-FIELD-MASK-256's resolution; input for D-IAM-3)

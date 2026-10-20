@@ -318,6 +318,68 @@
   page-slug match). A Haiku `census-counter` run confirmed the per-version
   counts (AGENT_LOG 2026-10-20).
 
+## The API surface by deliverable (D-API-0)
+
+- `data/hubspot/surface_map.tsv` maps each of the 140 spec families
+  (`crm-contacts`, `cms-pages`, …; `surface::family` strips directory,
+  `.json` and version) to the D-id that owns it, or `UNPLANNED` with a
+  reason. `hubspo-harvest deliverables <surface.tsv> <map.tsv>` counts the
+  functions per D-id and refuses a family with no row.
+- A test pins it to the committed data: every family in the surface has a
+  row, no row names a family that is not there, every D-id is on
+  STATUS_BOARD, and the functions sum to 1,518.
+- The mapping is a judgement, recorded so it can be argued with row by row.
+  Object CRUD of every object type (including types with no concept, like
+  courses and listings) is D-API-1, which is why it holds a third of the
+  surface. Measured 2026-10-20:
+
+| deliverable | spec families | current | legacy only | beta only | functions |
+|---|---|---|---|---|---|
+| D-API-1 | 43 | 377 | 168 | 0 | 545 |
+| D-MKT-4 | 21 | 208 | 77 | 0 | 285 |
+| UNPLANNED | 19 | 99 | 30 | 5 | 134 |
+| D-COM-1 | 10 | 39 | 3 | 28 | 70 |
+| D-MKT-2 | 7 | 27 | 32 | 0 | 59 |
+| D-MAIL-5 | 3 | 22 | 25 | 0 | 47 |
+| D-QRY-2 | 1 | 31 | 1 | 0 | 32 |
+| D-QRY-6 | 2 | 0 | 8 | 22 | 30 |
+| D-MKT-3 | 1 | 26 | 1 | 0 | 27 |
+| D-FLOW-1 | 2 | 0 | 16 | 10 | 26 |
+| D-UI-1 | 1 | 0 | 24 | 0 | 24 |
+| D-MKT-1 | 3 | 0 | 17 | 6 | 23 |
+| D-IAM-4 | 2 | 19 | 2 | 0 | 21 |
+| D-LOG-2 | 1 | 19 | 0 | 0 | 19 |
+| D-API-2 | 1 | 8 | 9 | 0 | 17 |
+| D-FLOW-3 | 1 | 17 | 0 | 0 | 17 |
+| D-MAIL-10 | 2 | 13 | 4 | 0 | 17 |
+| D-ACT-3 | 2 | 11 | 4 | 0 | 15 |
+| D-SVC-2 | 1 | 0 | 0 | 15 | 15 |
+| D-MAIL-6 | 2 | 8 | 5 | 1 | 14 |
+| D-FLOW-4 | 1 | 9 | 4 | 0 | 13 |
+| D-STO-3 | 1 | 9 | 2 | 0 | 11 |
+| D-IAM-2 | 1 | 9 | 0 | 0 | 9 |
+| D-API-3 | 1 | 3 | 5 | 0 | 8 |
+| D-INT-3 | 1 | 0 | 0 | 8 | 8 |
+| D-ONT-7 | 1 | 6 | 0 | 0 | 6 |
+| D-MAIL-8 | 1 | 5 | 0 | 0 | 5 |
+| D-SIM-2 | 1 | 5 | 0 | 0 | 5 |
+| D-ACT-2 | 2 | 3 | 1 | 0 | 4 |
+| D-ONT-6 | 1 | 2 | 2 | 0 | 4 |
+| D-IAM-6 | 1 | 3 | 0 | 0 | 3 |
+| D-INT-4 | 1 | 0 | 0 | 3 | 3 |
+| D-IAM-5 | 1 | 1 | 0 | 0 | 1 |
+| D-INT-6 | 1 | 1 | 0 | 0 | 1 |
+| **total** | 140 | 980 | 440 | 98 | 1,518 |
+
+- Unplanned, 134 functions in 11 groups (`ISS-SURFACE-UNPLANNED`):
+  marketing events 37, app platform 22 (cards, extensions, feature flags,
+  uninstalls), file manager 19, partner program 14, custom behavioural
+  events 12, portal limits 9, record tags 6, answer-engine optimisation 5,
+  data-studio ingestion 4, deal splits and forecasts 4, API metadata 2.
+- D-ids with no surface functions are internal (store, simulation, query
+  engine, UI, CI) or have their API inside another D-id's families: D-SVC-1's
+  tickets and feedback are D-API-1 CRUD, D-IAM-1's roles have no public API.
+
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
 
 `probes/p-qdb-1`. Command:
