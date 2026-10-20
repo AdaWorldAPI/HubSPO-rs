@@ -4,5 +4,14 @@
 //!
 //! - Zone: zone 2 (no serde, no wire formats).
 //! - Deliverables: D-ONT-6 (`.claude/plans/hubspo-integration-v1.md`).
-//! - First real code lands in wave W1. Until then this crate is empty on
-//!   purpose; Wave 0 only fixes the workspace shape.
+//!
+//! | module | generated from | by |
+//! |---|---|---|
+//! | [`standard_properties`] | `data/hubspot/standard_properties.tsv` | `hubspo-harvest emit` (`scripts/fetch-hubspot-properties.sh` runs it) |
+//!
+//! `hubspo-harvest`'s test `the_committed_generated_file_matches_the_table`
+//! fails when a module and its table disagree.
+
+// Generated code is kept byte-for-byte as the generator writes it.
+#[rustfmt::skip]
+pub mod standard_properties;

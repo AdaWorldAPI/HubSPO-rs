@@ -8,5 +8,10 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+lance-graph-contract.workspace = true
+hubspo-port = { path = "../hubspo-port" }
+hubspo-generated = { path = "../hubspo-generated" }
+
 [lints]
 workspace = true

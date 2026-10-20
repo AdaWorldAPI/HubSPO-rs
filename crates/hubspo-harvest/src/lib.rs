@@ -17,5 +17,7 @@
 //!   named in `ISSUES.md` → `ISS-ORACLE-PORTAL`.
 
 pub mod catalog;
+pub mod objdef;
 pub mod openapi;
+pub mod positions;
 pub mod report;

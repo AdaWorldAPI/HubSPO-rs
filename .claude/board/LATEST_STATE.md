@@ -230,6 +230,33 @@
 - Not covered yet: per-portal property, pipeline and label definitions
   (needs `ISS-ORACLE-PORTAL`).
 
+## Standard property positions (D-ONT-6, provisional)
+
+- `scripts/fetch-hubspot-properties.sh` fetches HubSpot's public
+  object-definition pages (18 object types) and activity API guides (6) into
+  `.cache/hubspot-properties` (gitignored), then runs `hubspo-harvest objdef`
+  or `guide`, `merge` (append-only by internal name into
+  `data/hubspot/standard_properties.tsv`, 1,413 rows) and `emit`
+  (`crates/hubspo-generated/src/standard_properties.rs`). A test fails when
+  the generated file and the table disagree.
+- Each row: internal name, type, field type, group, sensitivity, hidden,
+  label. Activity rows carry names only.
+- `hubspo-schema::HubSpoClassView` keys each table by concept alone
+  (classview `0x0000`): contact 256 (+16 unaddressable), company 159,
+  deal 97, ticket 107, lead 93, product 30, line item 58, call 16,
+  meeting 29, task 8, note 4, email 15, commerce payment 92 fields (pinned
+  `== N`). Field `n` is table position `n`; the predicate is
+  `hubspot-property:<object>/<name>`.
+- Contact exceeds the 256 positions a `WideFieldMask` can address
+  (`ISS-FIELD-MASK-256`). Every stated sensitivity is `non_sensitive`.
+- Provisional source (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20
+  from the pages of that day; a re-run on the same pages left the table
+  byte-identical.
+- 18 tests (objdef 4, positions 6, schema 8). Eleven disable runs measured
+  red (truncated page, guide table filter, non-blanking merge, append-only
+  merge, duplicate name, name shape, past-255 addressing, field cap,
+  shared concept, name predicate, generated-file drift).
+
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
 
 `probes/p-qdb-1`. Command:

@@ -3,6 +3,21 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-FIELD-MASK-256 — HubSpot's contact object has more standard properties than a field mask can address
+
+- **Status:** OPEN (found 2026-10-20 by D-ONT-6; operator decision needed)
+- **Where:** lance-graph-contract `WideFieldMask` (positions are `u8`, cap 256); `hubspo-schema::HubSpoClassView`.
+- **What:** HubSpot's contact object-definition page defines 272 standard properties. Positions 256..271 are in the table, but no `WideFieldMask` can reach them, so no role can be granted them (RBAC fails closed: the field is absent from the wire). `HubSpoClassView` exposes the first 256 as fields and lists the rest via `unaddressable`, pinned at 16. Tenant custom properties (H-ADR-3) have the same ceiling. Company is next at 159.
+- **Options:** (a) widen `WideFieldMask` positions upstream (a contract change; surface to the operator, do not file); (b) split a class's properties into two masks (core + extended); (c) move rarely-used properties to a packed tenant run (P-CUSTOM-1 measured both shapes).
+
+## ISS-KB-PROPERTIES-PROVISIONAL — standard property positions come from public documentation
+
+- **Status:** OPEN (opened 2026-10-20 by D-ONT-6; operator chose the provisional source)
+- **Where:** `data/hubspot/standard_properties.tsv`, `hubspo-harvest::objdef`, `hubspo-schema::HubSpoClassView`.
+- **What:** the table comes from HubSpot's public object-definition pages (internal name, type, field type, group, sensitivity, hidden flag, label for 18 object types, 1,337 properties) and from the activity API guides (internal names only, for calls, meetings, tasks, notes, emails and postal mail). So (1) activity rows have no type, group or label until a portal fills them in; (2) the counts are the documentation's, not a portal's; (3) quotes have no definition page and no table; (4) Invoice and Order converge with Quote on one concept, so none of the three is in the ClassView; `communication`, `postal_mail`, `appointment`, `cart`, `commerce_subscription`, `discount`, `feedback_submission`, `fee` and `goal` have tables but no HubSpot concept.
+- **Finding:** every one of the 1,337 properties with a stated class is `non_sensitive`; data HubSpot treats as sensitive lives in tenant (custom) properties. Input for D-IAM-3.
+- **Resolves with:** `ISS-ORACLE-PORTAL`. A portal's properties API run through `merge` fills the empty columns at the existing positions (append-only, by internal name).
+
 ## ISS-LG-GRAPHFLOW-LANCE-PATHS — graph-flow-lance cannot be consumed by git
 
 - **Status:** OPEN (found 2026-10-14, rs-graph-llm `5b54301`; upstream ask)
