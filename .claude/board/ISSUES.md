@@ -25,7 +25,7 @@
 
 ## ISS-CRM-KEY-CLASSVIEW — CRM keys would bake the fossil render prefix `0x000B`
 
-- **Status:** OPEN; evidence 2026-10-14: lance-graph #1550 (D-HOLO H5) measured a key-prefix `Range` at 292–573× a key sweep, valid only with a layout-order witness (a permuted key lane disagrees with the oracle). The classview choice therefore decides which CRM reads are prefix ranges. Earlier: OPEN (found 2026-10-11 by the audit; operator question + upstream ask)
+- **Status:** RESOLVED 2026-10-20 by operator decision: CRM keys carry classview `0x0000` (the shared canonical core), so a CRM classid is `concept << 16`. How a record is read comes from the authority by concept, never from the key; `HubSpoPort::APP_PREFIX` (`0x000B`) stays a render/port value and is never baked into a key. This answers lance-graph O1 (`v3-mandatory-hotplug-reading-v1`) for the CRM domain. Earlier: OPEN; evidence 2026-10-14: lance-graph #1550 (D-HOLO H5) measured a key-prefix `Range` at 292–573× a key sweep, valid only with a layout-order witness (a permuted key lane disagrees with the oracle). The classview choice therefore decides which CRM reads are prefix ranges. Earlier: OPEN (found 2026-10-11 by the audit; operator question + upstream ask)
 - **Where:** plan key layout; lance-graph #1464 (`9f5d3dfe`) classid-layout ruling, plan `v3-mandatory-hotplug-reading-v1` rule 5.
 - **What:** per-app render prefixes in the classview bits are a fossil; no new code may depend on `APP_PREFIX` being a classview value. HubSPO-rs has not minted keys yet. The CRM plug gives no row reading until `crm_actions` exists (D-ACT-1). Ask which classview CRM keys carry before D-STO-2 mints any.
 
