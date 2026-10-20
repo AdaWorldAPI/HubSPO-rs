@@ -7,7 +7,7 @@
 //!
 //! | module | generated from | by |
 //! |---|---|---|
-//! | [`standard_properties`] | `data/hubspot/standard_properties.tsv` | `hubspo-harvest emit` (`scripts/fetch-hubspot-kb.sh` runs it) |
+//! | [`standard_properties`] | `data/hubspot/standard_properties.tsv` | `hubspo-harvest emit` (`scripts/fetch-hubspot-properties.sh` runs it) |
 //!
 //! `hubspo-harvest`'s test `the_committed_generated_file_matches_the_table`
 //! fails when a module and its table disagree.

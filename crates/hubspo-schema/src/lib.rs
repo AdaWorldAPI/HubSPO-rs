@@ -18,16 +18,24 @@
 //! concept is the whole class identity and `HubSpoPort::APP_PREFIX` plays no
 //! part. Concepts come from `hubspo-port`, never from a local hex.
 //!
-//! **Provisional data.** The tables come from HubSpot's public
-//! default-property pages, which give display labels only. A field's
-//! `predicate_iri` is therefore `hubspot-kb:<object>/<position>`, not a
-//! HubSpot internal name: guessing internal names would make a later portal
-//! harvest disagree silently. The portal harvest (`ISS-ORACLE-PORTAL`) adds
-//! internal names and types at the same positions.
+//! **Provisional data** (operator decision 2026-10-20). The tables come
+//! from HubSpot's public object-definition pages and activity guides
+//! (`ISS-KB-PROPERTIES-PROVISIONAL`), not from a portal. A field's
+//! `predicate_iri` is `hubspot-property:<object>/<name>`, with `name` the
+//! property's internal name; its label is the display label, or the name
+//! where the source gives none (the activity guides list names only).
 //!
-//! Two object types on the pages have no concept to key on and are not in
-//! the ClassView: `communication` and `postal_mail` (their tables are
-//! generated all the same).
+//! **The 256-position ceiling.** `WideFieldMask` positions are `u8`, so a
+//! mask reaches positions `0..256` only. HubSpot's contact object has more
+//! standard properties than that; the view exposes the first 256 as fields
+//! and reports the rest through [`HubSpoClassView::unaddressable`], so no
+//! role can be granted a property silently dropped from its mask
+//! (`ISS-FIELD-MASK-256`).
+//!
+//! Object types whose HubSpot name has no concept, or shares one, are not in
+//! the ClassView; their tables are generated all the same. Invoice and Order
+//! converge with Quote on one concept, and one concept cannot hold three
+//! tables' positions.
 
 use hubspo_generated::standard_properties::{self, StandardProperty};
 use lance_graph_contract::class_view::{ClassId, ClassView};
@@ -48,7 +56,11 @@ pub const OBJECT_CONCEPT_NAMES: &[(&str, &str)] = &[
     ("task", "Task"),
     ("note", "Note"),
     ("email", "Email"),
+    ("commerce_payment", "CommercePayment"),
 ];
+
+/// The positions a `WideFieldMask` can address (`u8`).
+pub const MASK_POSITIONS: usize = 256;
 
 /// The table an object name's concept reads.
 #[derive(Debug, Clone)]
@@ -100,7 +112,11 @@ impl HubSpoClassView {
                 .ok_or(SchemaError::NoTable(object))?;
             let fields = table
                 .iter()
-                .map(|p| FieldRef::new(format!("hubspot-kb:{object}/{}", p.position), p.label))
+                .take(MASK_POSITIONS)
+                .map(|p| {
+                    let label = if p.label.is_empty() { p.name } else { p.label };
+                    FieldRef::new(format!("hubspot-property:{object}/{}", p.name), label)
+                })
                 .collect();
             skins.push(Skin {
                 concept,
@@ -128,13 +144,23 @@ impl HubSpoClassView {
         self.skin(class).map(|s| s.object)
     }
 
-    /// The field position of the property labelled `label` on `class`.
+    /// The field position of the property with internal name `name` on
+    /// `class`. `None` when the class has no such property, or when its
+    /// position is past what a mask can address ([`Self::unaddressable`]).
     #[must_use]
-    pub fn position_of(&self, class: ClassId, label: &str) -> Option<u8> {
+    pub fn position_of(&self, class: ClassId, name: &str) -> Option<u8> {
         self.standard(class)?
             .iter()
-            .find(|p| p.label == label)
-            .map(|p| p.position)
+            .find(|p| p.name == name)
+            .and_then(|p| u8::try_from(p.position).ok())
+    }
+
+    /// The standard properties of `class` past position 255: in the table,
+    /// but outside every `WideFieldMask`, so no grant can reach them.
+    #[must_use]
+    pub fn unaddressable(&self, class: ClassId) -> &'static [StandardProperty] {
+        self.standard(class)
+            .map_or(&[], |t| t.get(MASK_POSITIONS..).unwrap_or(&[]))
     }
 
     /// Every concept the view covers, in table order.
@@ -179,25 +205,29 @@ mod tests {
     #[test]
     fn field_counts_are_pinned() {
         let v = view();
-        let counts: Vec<(&str, usize)> = OBJECT_CONCEPT_NAMES
+        let counts: Vec<(&str, usize, usize)> = OBJECT_CONCEPT_NAMES
             .iter()
-            .map(|&(o, n)| (o, v.field_count(concept(n))))
+            .map(|&(o, n)| {
+                let c = concept(n);
+                (o, v.field_count(c), v.unaddressable(c).len())
+            })
             .collect();
         assert_eq!(
             counts,
             vec![
-                ("contact", 175),
-                ("company", 93),
-                ("deal", 75),
-                ("ticket", 50),
-                ("lead", 61),
-                ("product", 26),
-                ("line_item", 54),
-                ("call", 29),
-                ("meeting", 28),
-                ("task", 20),
-                ("note", 11),
-                ("email", 29),
+                ("contact", 256, 16),
+                ("company", 159, 0),
+                ("deal", 97, 0),
+                ("ticket", 107, 0),
+                ("lead", 93, 0),
+                ("product", 30, 0),
+                ("line_item", 58, 0),
+                ("call", 16, 0),
+                ("meeting", 29, 0),
+                ("task", 8, 0),
+                ("note", 4, 0),
+                ("email", 15, 0),
+                ("commerce_payment", 92, 0),
             ]
         );
     }
@@ -209,13 +239,17 @@ mod tests {
             let table = v.standard(c).unwrap();
             let object = v.object(c).unwrap();
             for (n, f) in v.fields(c).iter().enumerate() {
-                assert_eq!(usize::from(table[n].position), n);
-                assert_eq!(f.label, table[n].label);
-                assert_eq!(f.predicate_iri, format!("hubspot-kb:{object}/{n}"));
+                let p = &table[n];
+                assert_eq!(usize::from(p.position), n);
                 assert_eq!(
-                    v.field_label(c, u8::try_from(n).unwrap()),
-                    Some(table[n].label)
+                    f.predicate_iri,
+                    format!("hubspot-property:{object}/{}", p.name)
                 );
+                let label = if p.label.is_empty() { p.name } else { p.label };
+                assert_eq!(f.label, label);
+                let n8 = u8::try_from(n).unwrap();
+                assert_eq!(v.field_label(c, n8), Some(label));
+                assert_eq!(v.position_of(c, p.name), Some(n8));
             }
         }
     }
@@ -234,7 +268,7 @@ mod tests {
             u16::try_from(rendered).is_err(),
             "a render classid is not a ClassId"
         );
-        assert!(v.position_of(deal, "Amount").is_some());
+        assert!(v.position_of(deal, "amount").is_some());
     }
 
     #[test]
@@ -247,20 +281,21 @@ mod tests {
         assert!(!all.contains(&pipeline));
         assert!(v.fields(pipeline).is_empty());
         assert_eq!(v.standard(pipeline), None);
-        assert_eq!(v.position_of(pipeline, "Amount"), None);
+        assert!(v.unaddressable(pipeline).is_empty());
+        assert_eq!(v.position_of(pipeline, "amount"), None);
     }
 
     #[test]
     fn two_object_types_on_one_concept_are_refused() {
-        // Quote and Invoice both converge on COMMERCIAL_DOCUMENT; one
+        // Invoice and Order both converge on COMMERCIAL_DOCUMENT; one
         // concept cannot hold two tables' positions.
-        let names = [("product", "Quote"), ("line_item", "Invoice")];
+        let names = [("invoice", "Invoice"), ("order", "Order")];
         assert_eq!(
             HubSpoClassView::build(&names).map(|v| v.concepts().count()),
-            Err(SchemaError::SharedConcept(concept("Quote")))
+            Err(SchemaError::SharedConcept(concept("Invoice")))
         );
         assert_eq!(
-            HubSpoClassView::build(&[("deal", "Cart")]).map(|_| ()),
+            HubSpoClassView::build(&[("cart", "Cart")]).map(|_| ()),
             Err(SchemaError::UnknownName("Cart"))
         );
         assert_eq!(
@@ -269,34 +304,67 @@ mod tests {
         );
         // Silence twin: distinct concepts build.
         assert_eq!(
-            HubSpoClassView::build(&[("product", "Quote"), ("deal", "Deal")])
+            HubSpoClassView::build(&[("invoice", "Invoice"), ("deal", "Deal")])
                 .map(|v| v.concepts().count()),
             Ok(2)
         );
     }
 
     #[test]
-    fn labels_resolve_to_their_positions() {
+    fn names_resolve_to_their_positions() {
         let v = view();
         let contact = concept("Contact");
         let p = v
-            .position_of(contact, "First name")
-            .expect("listed on the page");
-        assert_eq!(v.field_label(contact, p), Some("First name"));
+            .position_of(contact, "firstname")
+            .expect("defined on the page");
+        assert_eq!(v.field_label(contact, p), Some("First Name"));
         assert_eq!(
-            v.position_of(contact, "first name"),
+            v.position_of(contact, "First Name"),
             None,
-            "labels are exact"
+            "names, not labels"
         );
-        assert_eq!(v.position_of(contact, "Deal stage"), None);
+        assert_eq!(v.position_of(contact, "dealstage"), None);
+        // A guide row has no label: the name stands in.
+        let call = concept("Call");
+        let body = v.position_of(call, "hs_call_body").unwrap();
+        assert_eq!(v.field_label(call, body), Some("hs_call_body"));
     }
 
     #[test]
-    fn every_table_fits_a_wide_field_mask() {
-        for (_, table) in standard_properties::OBJECTS {
-            assert!(table.len() <= 256);
+    fn positions_past_255_are_reported_never_addressed() {
+        let v = view();
+        let contact = concept("Contact");
+        let past = v.unaddressable(contact);
+        assert_eq!(past.len(), 16);
+        assert_eq!(past[0].position, 256);
+        for p in past {
+            assert_eq!(v.position_of(contact, p.name), None);
+            assert!(
+                v.standard(contact)
+                    .unwrap()
+                    .iter()
+                    .any(|q| q.name == p.name)
+            );
         }
-        // The contact table needs the wide mask: a `FieldMask` would drop it.
-        assert!(view().field_count(concept("Contact")) > 64);
+        // Silence twin: a table under the ceiling reports nothing.
+        assert!(v.unaddressable(concept("Deal")).is_empty());
+        assert_eq!(v.fields(contact).len(), MASK_POSITIONS);
+    }
+
+    #[test]
+    fn standard_properties_are_all_non_sensitive_where_stated() {
+        // HubSpot classifies every standard property it defines on the
+        // object-definition pages as `non_sensitive`; sensitive data lives in
+        // tenant (custom) properties. Guide rows state no class.
+        let mut stated = 0;
+        for (_, table) in standard_properties::OBJECTS {
+            for p in *table {
+                if !p.sensitivity.is_empty() {
+                    assert_eq!(p.sensitivity, "non_sensitive", "{}", p.name);
+                    stated += 1;
+                }
+            }
+        }
+        assert_eq!(stated, 1337);
     }
 }
