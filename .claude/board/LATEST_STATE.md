@@ -376,6 +376,9 @@
   uninstalls), file manager 19, partner program 14, custom behavioural
   events 12, portal limits 9, record tags 6, answer-engine optimisation 5,
   data-studio ingestion 4, deal splits and forecasts 4, API metadata 2.
+- 4 mapping tests; seven disable runs measured red (unmapped family,
+  duplicate row, version-suffix strip, legacy-only by page slug, D-id not on
+  the board, missing row, stale row).
 - D-ids with no surface functions are internal (store, simulation, query
   engine, UI, CI) or have their API inside another D-id's families: D-SVC-1's
   tickets and feedback are D-API-1 CRUD, D-IAM-1's roles have no public API.
