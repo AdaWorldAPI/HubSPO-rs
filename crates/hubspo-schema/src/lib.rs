@@ -84,8 +84,12 @@ impl HubSpoClassView {
     /// [`SchemaError`] when a name does not resolve, a table is missing, or
     /// two object types would share one concept's field positions.
     pub fn new() -> Result<Self, SchemaError> {
-        let mut skins: Vec<Skin> = Vec::with_capacity(OBJECT_CONCEPT_NAMES.len());
-        for &(object, name) in OBJECT_CONCEPT_NAMES {
+        Self::build(OBJECT_CONCEPT_NAMES)
+    }
+
+    fn build(names: &[(&'static str, &'static str)]) -> Result<Self, SchemaError> {
+        let mut skins: Vec<Skin> = Vec::with_capacity(names.len());
+        for &(object, name) in names {
             let concept = hubspo_port::class_id(name).ok_or(SchemaError::UnknownName(name))?;
             if skins.iter().any(|s| s.concept == concept) {
                 return Err(SchemaError::SharedConcept(concept));
@@ -244,6 +248,31 @@ mod tests {
         assert!(v.fields(pipeline).is_empty());
         assert_eq!(v.standard(pipeline), None);
         assert_eq!(v.position_of(pipeline, "Amount"), None);
+    }
+
+    #[test]
+    fn two_object_types_on_one_concept_are_refused() {
+        // Quote and Invoice both converge on COMMERCIAL_DOCUMENT; one
+        // concept cannot hold two tables' positions.
+        let names = [("product", "Quote"), ("line_item", "Invoice")];
+        assert_eq!(
+            HubSpoClassView::build(&names).map(|v| v.concepts().count()),
+            Err(SchemaError::SharedConcept(concept("Quote")))
+        );
+        assert_eq!(
+            HubSpoClassView::build(&[("deal", "Cart")]).map(|_| ()),
+            Err(SchemaError::UnknownName("Cart"))
+        );
+        assert_eq!(
+            HubSpoClassView::build(&[("quote", "Quote")]).map(|_| ()),
+            Err(SchemaError::NoTable("quote"))
+        );
+        // Silence twin: distinct concepts build.
+        assert_eq!(
+            HubSpoClassView::build(&[("product", "Quote"), ("deal", "Deal")])
+                .map(|v| v.concepts().count()),
+            Ok(2)
+        );
     }
 
     #[test]
