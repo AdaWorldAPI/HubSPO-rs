@@ -252,6 +252,10 @@
 - Provisional source (`ISS-KB-PROPERTIES-PROVISIONAL`). Measured 2026-10-20
   from the pages of that day; a re-run on the same pages left the table
   byte-identical.
+- 18 tests (objdef 4, positions 6, schema 8). Eleven disable runs measured
+  red (truncated page, guide table filter, non-blanking merge, append-only
+  merge, duplicate name, name shape, past-255 addressing, field cap,
+  shared concept, name predicate, generated-file drift).
 
 ## Probe P-QDB-1 (Quack as the database; plan H-ADR-6, D-QRY-1)
 
