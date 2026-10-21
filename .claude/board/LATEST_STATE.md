@@ -253,11 +253,14 @@
 - `WideFieldMask` cannot carry the inner set: `u8` positions cannot name
   contact's 272 ordinals, and it has no schema version. Hence a local type,
   no new upstream abstraction.
-- `Projection::compile` (once per request, per concept, one `SchemaVersion`);
-  `project` drops hidden and unknown properties from a row; `require`
-  refuses a filter, sort or aggregate that reads one; a different schema
-  version refuses everything.
-- 10 tests. Six disable runs measured red: inner grant ignored, outer mask
+- `Projection::compile` (once per request, per concept) records a `Stamp`:
+  concept, schema version, inner-grant generation, outer `PolicyVersion`.
+  Every read presents the current stamp: `project` drops hidden and unknown
+  properties from a row; `require` refuses a filter, sort or aggregate that
+  reads one; any stamp difference (another concept, schema version, a
+  revoked grant) refuses everything (Codex on #42).
+- 12 tests. Eight disable runs measured red: concept check off, grant
+  generation ignored, inner grant ignored, outer mask
   ignored, stale version accepted, `require` passing hidden properties,
   one role's outer mask combined with another's inner grant, an unread
   directory group accepted.

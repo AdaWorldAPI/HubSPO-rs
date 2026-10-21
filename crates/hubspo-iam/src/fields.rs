@@ -39,7 +39,10 @@
 //! A role with no inner grant on the concept admits nothing; an ordinal the
 //! schema does not know is refused; a projection compiled against another
 //! schema version refuses everything, so a property added later is never
-//! exposed by a mask compiled before it existed.
+//! exposed by a mask compiled before it existed. The same holds for the
+//! concept (ordinal 8 of a deal is not ordinal 8 of a contact) and for the
+//! grants: a projection carries a [`Stamp`] and every read presents the
+//! current one, so a revoked grant stops authorizing at once.
 
 use hubspo_generated::standard_properties::{PACKED_RUN_POSITION, Slot, StandardProperty};
 use lance_graph_contract::class_view::WideFieldMask;
@@ -131,6 +134,7 @@ impl OrdinalSet {
 #[derive(Debug, Clone, Default)]
 pub struct PropertyGrants {
     entries: Vec<(RoleId, u16, OrdinalSet)>,
+    generation: u64,
 }
 
 /// Why a grant could not be recorded.
@@ -167,6 +171,7 @@ impl PropertyGrants {
             set.insert(ordinal);
         }
         self.entry(role, schema.concept).union_with(&set);
+        self.generation += 1;
         Ok(())
     }
 
@@ -178,6 +183,21 @@ impl PropertyGrants {
             set.insert(p.position);
         }
         self.entry(role, schema.concept).union_with(&set);
+        self.generation += 1;
+    }
+
+    /// Withdraw every grant `role` holds on `concept`.
+    pub fn revoke(&mut self, role: RoleId, concept: u16) {
+        self.entries
+            .retain(|(r, c, _)| !(*r == role && *c == concept));
+        self.generation += 1;
+    }
+
+    /// Bumped by every change to the grants, so a projection compiled
+    /// before a change is refused after it.
+    #[must_use]
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     fn entry(&mut self, role: RoleId, concept: u16) -> &mut OrdinalSet {
@@ -205,15 +225,49 @@ impl PropertyGrants {
     }
 }
 
+/// The version of the outer policy: the role assignments and field masks a
+/// projection was compiled from. Its owner bumps it on every grant change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PolicyVersion(pub u64);
+
+/// What a projection is valid for: one concept, one schema version, one
+/// generation of the inner grants and one outer policy version. A read
+/// presents the current stamp; any difference refuses it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stamp {
+    /// The concept whose ordinals the projection names.
+    pub concept: u16,
+    /// The concept's schema version.
+    pub schema: SchemaVersion,
+    /// [`PropertyGrants::generation`].
+    pub inner: u64,
+    /// The outer policy version.
+    pub outer: PolicyVersion,
+}
+
+impl Stamp {
+    /// The current stamp for `schema` under `inner` and `outer`.
+    #[must_use]
+    pub fn of(schema: &Schema, inner: &PropertyGrants, outer: PolicyVersion) -> Self {
+        Self {
+            concept: schema.concept,
+            schema: schema.version,
+            inner: inner.generation(),
+            outer,
+        }
+    }
+}
+
 /// Why a read was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
-    /// The projection was compiled against another schema version.
+    /// The projection was compiled for another concept, schema version or
+    /// grant generation than the read presents.
     Stale {
-        /// The version it was compiled against.
-        compiled: SchemaVersion,
-        /// The version the request reads.
-        current: SchemaVersion,
+        /// What it was compiled for.
+        compiled: Stamp,
+        /// What the read presents.
+        current: Stamp,
     },
     /// The schema has no property at this ordinal.
     Unknown(u16),
@@ -224,8 +278,7 @@ pub enum Refusal {
 /// One request's readable properties on one concept.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Projection {
-    concept: u16,
-    version: SchemaVersion,
+    stamp: Stamp,
     known: u16,
     readable: OrdinalSet,
 }
@@ -237,12 +290,14 @@ impl Projection {
     /// admits its ordinal.
     ///
     /// `outer` gives a role's outer mask on the concept; `None` admits no
-    /// field. Call once per request.
+    /// field. `policy` is the outer policy version those masks come from.
+    /// Call once per request.
     #[must_use]
     pub fn compile(
         schema: &Schema,
         roles: &[RoleId],
         outer: impl Fn(RoleId) -> Option<WideFieldMask>,
+        policy: PolicyVersion,
         inner: &PropertyGrants,
     ) -> Self {
         let mut readable = OrdinalSet::new();
@@ -261,8 +316,7 @@ impl Projection {
             }
         }
         Self {
-            concept: schema.concept,
-            version: schema.version,
+            stamp: Stamp::of(schema, inner, policy),
             known: u16::try_from(schema.properties.len()).unwrap_or(u16::MAX),
             readable,
         }
@@ -271,16 +325,22 @@ impl Projection {
     /// The concept the projection is for.
     #[must_use]
     pub fn concept(&self) -> u16 {
-        self.concept
+        self.stamp.concept
     }
 
-    fn current(&self, current: SchemaVersion) -> Result<(), Refusal> {
-        if current == self.version {
+    /// What the projection is valid for.
+    #[must_use]
+    pub fn stamp(&self) -> Stamp {
+        self.stamp
+    }
+
+    fn current(&self, current: &Stamp) -> Result<(), Refusal> {
+        if *current == self.stamp {
             Ok(())
         } else {
             Err(Refusal::Stale {
-                compiled: self.version,
-                current,
+                compiled: self.stamp,
+                current: *current,
             })
         }
     }
@@ -302,11 +362,12 @@ impl Projection {
     ///
     /// # Errors
     ///
-    /// [`Refusal::Stale`] when `current` is not the compiled version; then
-    /// nothing is returned.
+    /// [`Refusal::Stale`] when `current` is not the compiled stamp (another
+    /// concept, schema version or grant generation); then nothing is
+    /// returned.
     pub fn project<V>(
         &self,
-        current: SchemaVersion,
+        current: &Stamp,
         values: impl IntoIterator<Item = (u16, V)>,
     ) -> Result<Vec<(u16, V)>, Refusal> {
         self.current(current)?;
@@ -324,15 +385,19 @@ impl Projection {
     ///
     /// [`Refusal::Stale`], or the first [`Refusal::Unknown`] /
     /// [`Refusal::Hidden`] property in `reads`.
-    pub fn require(&self, current: SchemaVersion, reads: &[u16]) -> Result<(), Refusal> {
+    pub fn require(&self, current: &Stamp, reads: &[u16]) -> Result<(), Refusal> {
         self.current(current)?;
         reads.iter().try_for_each(|&o| self.decide(o))
     }
 
-    /// Whether the property named `name` in `schema` is readable.
+    /// Whether the property named `name` in `schema` is readable under the
+    /// `current` stamp; `false` when the stamp or `schema` is not the one
+    /// the projection was compiled for.
     #[must_use]
-    pub fn admits(&self, schema: &Schema, name: &str) -> bool {
-        schema.version == self.version
+    pub fn admits(&self, current: &Stamp, schema: &Schema, name: &str) -> bool {
+        self.current(current).is_ok()
+            && schema.concept == self.stamp.concept
+            && schema.version == self.stamp.schema
             && schema
                 .ordinal(name)
                 .and_then(|o| schema.property(o))
@@ -348,6 +413,7 @@ mod tests {
     use ogar_vocab::class_ids;
 
     const V1: SchemaVersion = SchemaVersion(1);
+    const P0: PolicyVersion = PolicyVersion(1);
 
     fn contact() -> Schema {
         Schema {
@@ -391,7 +457,7 @@ mod tests {
         inner
             .grant(ROLE_SALES_USER, &contact(), &["school"])
             .unwrap();
-        Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, &inner)
+        Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, P0, &inner)
     }
 
     #[test]
@@ -407,21 +473,24 @@ mod tests {
     #[test]
     fn reading_school_does_not_grant_the_personal_attributes() {
         let p = school_only();
-        let out = p.project(V1, full_row()).unwrap();
+        let out = p.project(&p.stamp(), full_row()).unwrap();
         assert_eq!(out, vec![(ord("school"), ord("school"))]);
         for name in PERSONAL {
-            assert!(!p.admits(&contact(), name), "{name}");
-            assert_eq!(p.require(V1, &[ord(name)]), Err(Refusal::Hidden(ord(name))));
+            assert!(!p.admits(&p.stamp(), &contact(), name), "{name}");
+            assert_eq!(
+                p.require(&p.stamp(), &[ord(name)]),
+                Err(Refusal::Hidden(ord(name)))
+            );
         }
-        assert!(p.admits(&contact(), "school"));
-        assert_eq!(p.require(V1, &[ord("school")]), Ok(()));
+        assert!(p.admits(&p.stamp(), &contact(), "school"));
+        assert_eq!(p.require(&p.stamp(), &[ord("school")]), Ok(()));
     }
 
     #[test]
     fn a_predicate_mixing_granted_and_hidden_properties_is_refused() {
         let p = school_only();
         assert_eq!(
-            p.require(V1, &[ord("school"), ord("date_of_birth")]),
+            p.require(&p.stamp(), &[ord("school"), ord("date_of_birth")]),
             Err(Refusal::Hidden(ord("date_of_birth")))
         );
     }
@@ -433,9 +502,10 @@ mod tests {
             &contact(),
             &[ROLE_SALES_USER],
             all_fields,
+            P0,
             &PropertyGrants::new(),
         );
-        assert!(p.project(V1, full_row()).unwrap().is_empty());
+        assert!(p.project(&p.stamp(), full_row()).unwrap().is_empty());
     }
 
     #[test]
@@ -452,36 +522,88 @@ mod tests {
                 .collect();
             Some(WideFieldMask::from_positions(&lanes))
         };
-        let p = Projection::compile(&contact(), &[ROLE_SALES_USER], lanes_only, &inner);
-        let out = p.project(V1, full_row()).unwrap();
+        let p = Projection::compile(&contact(), &[ROLE_SALES_USER], lanes_only, P0, &inner);
+        let out = p.project(&p.stamp(), full_row()).unwrap();
         assert_eq!(
             out.len(),
             CONTACT.iter().filter(|q| q.slot != Slot::Packed).count()
         );
-        assert!(!p.admits(&contact(), "school"));
-        assert!(p.admits(&contact(), "firstname"));
+        assert!(!p.admits(&p.stamp(), &contact(), "school"));
+        assert!(p.admits(&p.stamp(), &contact(), "firstname"));
     }
 
     #[test]
     fn a_stale_projection_refuses_everything() {
         let p = school_only();
-        let v2 = SchemaVersion(2);
-        let stale = Refusal::Stale {
-            compiled: V1,
-            current: v2,
+        let current = Stamp {
+            schema: SchemaVersion(2),
+            ..p.stamp()
         };
-        assert_eq!(p.project(v2, full_row()), Err(stale.clone()));
-        assert_eq!(p.require(v2, &[ord("school")]), Err(stale));
+        let stale = Refusal::Stale {
+            compiled: p.stamp(),
+            current,
+        };
+        assert_eq!(p.project(&current, full_row()), Err(stale.clone()));
+        assert_eq!(p.require(&current, &[ord("school")]), Err(stale));
+        assert!(!p.admits(&current, &contact(), "school"));
+    }
+
+    #[test]
+    fn a_projection_for_another_concept_is_refused() {
+        // A deal projection at the same versions must not read a contact
+        // row: ordinal 8 is a deal property there and date_of_birth here.
+        let deal = Schema {
+            concept: class_ids::CRM_DEAL,
+            ..contact()
+        };
+        let mut inner = PropertyGrants::new();
+        inner.grant_all(ROLE_SALES_USER, &deal);
+        let p = Projection::compile(&deal, &[ROLE_SALES_USER], all_fields, P0, &inner);
+        let contact_now = Stamp::of(&contact(), &inner, P0);
+        assert_eq!(p.stamp().schema, contact_now.schema, "same version");
+        assert!(matches!(
+            p.project(&contact_now, full_row()),
+            Err(Refusal::Stale { .. })
+        ));
+        assert!(p.require(&contact_now, &[ord("date_of_birth")]).is_err());
+        assert!(!p.admits(&p.stamp(), &contact(), "date_of_birth"));
+        // Silent twin: under its own stamp the deal projection reads.
+        assert_eq!(p.require(&p.stamp(), &[8]), Ok(()));
+    }
+
+    #[test]
+    fn a_grant_change_invalidates_the_projection() {
+        let mut inner = PropertyGrants::new();
+        inner
+            .grant(ROLE_SALES_USER, &contact(), &["school"])
+            .unwrap();
+        let p = Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, P0, &inner);
+        let before = Stamp::of(&contact(), &inner, P0);
+        assert_eq!(p.require(&before, &[ord("school")]), Ok(()));
+        // Inner revocation.
+        inner.revoke(ROLE_SALES_USER, class_ids::CRM_CONTACT);
+        let after = Stamp::of(&contact(), &inner, P0);
+        assert!(matches!(
+            p.project(&after, full_row()),
+            Err(Refusal::Stale { .. })
+        ));
+        assert!(p.require(&after, &[ord("school")]).is_err());
+        // Outer policy change (a role or field mask withdrawn elsewhere).
+        let outer_changed = Stamp::of(&contact(), &inner, PolicyVersion(2));
+        let recompiled =
+            Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, P0, &inner);
+        assert!(recompiled.require(&outer_changed, &[]).is_err());
+        assert!(recompiled.project(&after, full_row()).unwrap().is_empty());
     }
 
     #[test]
     fn unknown_ordinals_are_dropped_and_refused() {
         let mut inner = PropertyGrants::new();
         inner.grant_all(ROLE_SALES_USER, &contact());
-        let p = Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, &inner);
+        let p = Projection::compile(&contact(), &[ROLE_SALES_USER], all_fields, P0, &inner);
         let past = u16::try_from(CONTACT.len()).unwrap();
-        assert_eq!(p.project(V1, [(past, 0u16)]).unwrap(), vec![]);
-        assert_eq!(p.require(V1, &[past]), Err(Refusal::Unknown(past)));
+        assert_eq!(p.project(&p.stamp(), [(past, 0u16)]).unwrap(), vec![]);
+        assert_eq!(p.require(&p.stamp(), &[past]), Err(Refusal::Unknown(past)));
         assert_eq!(
             inner.grant(ROLE_SALES_USER, &contact(), &["no_such_property"]),
             Err(GrantError::UnknownProperty("no_such_property".into()))
@@ -504,13 +626,23 @@ mod tests {
             &contact(),
             &[ROLE_SALES_USER, ROLE_VIEW_ONLY],
             outer,
+            P0,
             &inner,
         );
-        assert!(p.admits(&contact(), "school"));
-        assert!(!p.admits(&contact(), "gender"));
+        assert!(p.admits(&p.stamp(), &contact(), "school"));
+        assert!(!p.admits(&p.stamp(), &contact(), "gender"));
         let both = |r: RoleId| all_fields(r);
-        let p = Projection::compile(&contact(), &[ROLE_SALES_USER, ROLE_VIEW_ONLY], both, &inner);
-        assert!(p.admits(&contact(), "school") && p.admits(&contact(), "gender"));
+        let p = Projection::compile(
+            &contact(),
+            &[ROLE_SALES_USER, ROLE_VIEW_ONLY],
+            both,
+            P0,
+            &inner,
+        );
+        assert!(
+            p.admits(&p.stamp(), &contact(), "school")
+                && p.admits(&p.stamp(), &contact(), "gender")
+        );
     }
 
     #[test]
@@ -537,13 +669,13 @@ mod tests {
         let mut inner = PropertyGrants::new();
         inner.grant(ROLE_SALES_USER, &schema, &["school"]).unwrap();
         let outer = |_: RoleId| Some(WideFieldMask::from_positions(&[PACKED_RUN_POSITION, 255]));
-        let p = Projection::compile(&schema, &[ROLE_SALES_USER], outer, &inner);
+        let p = Projection::compile(&schema, &[ROLE_SALES_USER], outer, P0, &inner);
         assert_eq!(
-            p.project(V1, full_row()).unwrap(),
+            p.project(&p.stamp(), full_row()).unwrap(),
             vec![(ord("school"), ord("school"))]
         );
         for name in PERSONAL {
-            assert!(!p.admits(&schema, name), "{name}");
+            assert!(!p.admits(&p.stamp(), &schema, name), "{name}");
         }
     }
 
@@ -560,8 +692,8 @@ mod tests {
         };
         let mut inner = PropertyGrants::new();
         inner.grant_all(ROLE_SALES_USER, &v1);
-        let p = Projection::compile(&v2, &[ROLE_SALES_USER], all_fields, &inner);
-        let out = p.project(SchemaVersion(2), full_row()).unwrap();
+        let p = Projection::compile(&v2, &[ROLE_SALES_USER], all_fields, P0, &inner);
+        let out = p.project(&p.stamp(), full_row()).unwrap();
         assert_eq!(
             out.len(),
             10,
