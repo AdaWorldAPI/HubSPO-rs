@@ -28,7 +28,9 @@
 //! `hubspo-harvest deliverables <surface.tsv> <map.tsv>` — prints, per
 //! deliverable in the map, the documented functions it owns:
 //! `deliverable <TAB> families <TAB> current <TAB> legacy_only <TAB>
-//! beta_only <TAB> functions`. A family without a map row is an error.
+//! beta_only <TAB> functions`, then one `coverage:<class> <TAB> families <TAB>
+//! functions` line per coverage class. A family without a map row is an
+//! error.
 //!
 //! `hubspo-harvest emit <table.tsv>` — prints the generated Rust for
 //! `hubspo-generated/src/standard_properties.rs`.
@@ -214,6 +216,11 @@ fn run(args: &[String]) -> Result<(), String> {
                     c.beta_only,
                     c.functions()
                 );
+            }
+            let coverage = surface::by_coverage(&ops, &map_rows)
+                .map_err(|f| format!("{map}: no row for spec family {f}"))?;
+            for c in coverage {
+                println!("coverage:{}\t{}\t{}", c.deliverable, c.families, c.functions());
             }
             Ok(())
         }

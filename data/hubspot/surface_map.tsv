@@ -1,140 +1,140 @@
-account-account-info	D-API-1	portal details on the façade
-account-activity	D-ACT-2	account activity = action audit
-account-audit-logs	D-ACT-2	audit log = ActionInvocation audit
-analytics-reporting	D-QRY-6	reports
-auth-oauth	D-API-3	OAuth apps and tokens
-automation-actions-v4	D-FLOW-3	custom workflow actions
-automation-automation-v4	D-FLOW-1	workflows API
-automation-email-templates	D-MAIL-8	email templates
-automation-sequences	D-FLOW-4	sequences
-blog-comments	D-MKT-4	CMS blog (legacy)
-blog-details	D-MKT-4	CMS blog (legacy)
-blog-posts	D-MKT-4	CMS blog (legacy)
-blog-topics	D-MKT-4	CMS blog (legacy)
-business-units-business-units	D-IAM-5	business units
-cms-authors	D-MKT-4	CMS
-cms-blog-settings	D-MKT-4	CMS
-cms-cms-content-audit	D-MKT-4	CMS
-cms-domains	D-MKT-4	CMS
-cms-hubdb	D-MKT-4	CMS data tables
-cms-knowledge-base	D-SVC-2	knowledge base
-cms-media-bridge	D-MKT-4	CMS media integrations
-cms-pages	D-MKT-4	CMS pages
-cms-posts	D-MKT-4	CMS blog posts
-cms-site-search	D-MKT-4	CMS site search
-cms-source-code	D-MKT-4	CMS developer files
-cms-tags	D-MKT-4	CMS blog tags
-cms-url-mappings	D-MKT-4	CMS
-cms-url-redirects	D-MKT-4	CMS
-commerce-contracts	D-COM-1	commerce
-commerce-payment-links	D-COM-1	commerce
-commerce-payment-methods	D-COM-1	commerce
-commerce-payments	D-COM-1	commerce
-commerce-payments-settings	D-COM-1	commerce
-commerce-paymentsaccounts	D-COM-1	commerce
-commerce-price-books	D-COM-1	commerce
-communication-preferences-subscriptions	D-MKT-2	subscription types and opt-outs
-conversations-conversations	D-MAIL-5	shared inbox
-conversations-custom-channels	D-MAIL-5	inbox channels
-conversations-visitor-identification	D-MAIL-5	chat visitor identity
-create-manage-workflows	D-FLOW-1	workflows API (legacy)
-crm-activity-auto-associations	D-INT-4	AUTO associations
-crm-app-uninstalls	UNPLANNED	app platform: install lifecycle
-crm-appointments	D-API-1	object CRUD
-crm-associations	D-API-1	association v4
-crm-associations-schema	D-STO-3	association labels
-crm-calling-extensions	D-MAIL-10	calling (logging only in v1)
-crm-calls	D-API-1	object CRUD
-crm-carts	D-API-1	object CRUD
-crm-commerce-payments	D-API-1	object CRUD
-crm-commerce-subscriptions	D-API-1	object CRUD
-crm-communications	D-API-1	object CRUD
-crm-companies	D-API-1	object CRUD
-crm-contacts	D-API-1	object CRUD
-crm-contracts	D-API-1	object CRUD
-crm-courses	D-API-1	object CRUD
-crm-crm-owners	D-API-1	owners
-crm-custom-objects	D-API-1	object CRUD (custom objects)
-crm-deal-splits	UNPLANNED	revenue: deal splits
-crm-deals	D-API-1	object CRUD
-crm-discounts	D-API-1	object CRUD
-crm-emails	D-API-1	object CRUD
-crm-engagements	D-API-1	object CRUD (legacy engagements)
-crm-exports	D-IAM-6	exports (accumulation guard)
-crm-extensions	UNPLANNED	app platform: extensions
-crm-feedback-submissions	D-API-1	object CRUD
-crm-fees	D-API-1	object CRUD
-crm-forecast-types	UNPLANNED	revenue: forecasting
-crm-goal-targets	D-API-1	object CRUD
-crm-imports	D-SIM-2	import through crm-sim
-crm-invoices	D-API-1	object CRUD
-crm-leads	D-API-1	object CRUD
-crm-limits-tracking	UNPLANNED	portal limits
-crm-line-items	D-API-1	object CRUD
-crm-listings	D-API-1	object CRUD
-crm-lists	D-QRY-2	lists
-crm-meetings	D-API-1	object CRUD
-crm-notes	D-API-1	object CRUD
-crm-notetaker-conversation-recap	D-INT-6	meeting recap
-crm-object-library	D-ONT-6	which standard objects are enabled
-crm-object-tags	UNPLANNED	record tags
-crm-orders	D-API-1	object CRUD
-crm-owners	D-API-1	owners (legacy)
-crm-partner-clients	UNPLANNED	partner program
-crm-partner-services	UNPLANNED	partner program
-crm-pipeline-governance	D-ACT-3	stage rules
-crm-pipelines	D-API-1	pipelines
-crm-postal-mail	D-API-1	object CRUD
-crm-products	D-API-1	object CRUD
-crm-projects	D-API-1	object CRUD
-crm-properties	D-API-1	properties
-crm-properties-v1-companies	D-API-1	properties (legacy)
-crm-properties-v1-contacts	D-API-1	properties (legacy)
-crm-properties-v1-deals	D-API-1	properties (legacy)
-crm-property-validations	D-ACT-3	property rules
-crm-public-app-crm-cards	UNPLANNED	app platform: record cards
-crm-public-app-feature-flags-v3	UNPLANNED	app platform: feature flags
-crm-quotes	D-API-1	object CRUD
-crm-schemas	D-ONT-7	custom object schemas
-crm-services	D-API-1	object CRUD
-crm-subscription-lifecycle	D-COM-1	subscriptions
-crm-tasks	D-API-1	object CRUD
-crm-tasks-series	D-API-1	recurring tasks
-crm-taxes	D-API-1	object CRUD
-crm-tickets	D-API-1	object CRUD
-crm-timeline	D-UI-1	timeline events
-crm-transcriptions	D-MAIL-10	call transcripts
-crm-users	D-IAM-4	users
-crm-video-conferencing-extension	D-MAIL-6	meeting links
-data-studio-datasource-ingestion	UNPLANNED	data studio ingestion
-domains	D-MKT-4	CMS domains (legacy)
-email-analytics	D-MKT-2	email statistics
-events-events	UNPLANNED	custom behavioural events
-events-manage-event-definitions	UNPLANNED	custom behavioural events
-events-send-event-completions	UNPLANNED	custom behavioural events
-files-files	UNPLANNED	file manager
-forms	D-MKT-1	forms (legacy)
-forms-v3-legacy	D-MKT-1	forms (legacy)
-marketing-aeo	UNPLANNED	answer-engine optimisation
-marketing-campaigns-public-api	D-MKT-3	campaigns
-marketing-events-tracking	UNPLANNED	marketing events
-marketing-forms	D-MKT-1	forms
-marketing-lead-scoring	D-INT-3	lead scoring
-marketing-marketing-emails	D-MKT-2	marketing email
-marketing-marketing-events	UNPLANNED	marketing events
-marketing-single-send	D-MKT-2	marketing email
-marketing-subscriptions	D-MKT-2	subscription types (legacy)
-marketing-transactional-single-send	D-MKT-2	transactional email
-meta-origins	UNPLANNED	API metadata
-modules	D-MKT-4	CMS modules (legacy)
-pages	D-MKT-4	CMS pages (legacy)
-reporting	D-QRY-6	reports (legacy)
-scheduler-meetings	D-MAIL-6	booking pages
-settings-multicurrency	D-COM-1	currencies
-settings-tax-rates	D-COM-1	tax rates
-settings-teams	D-IAM-2	teams
-settings-user-provisioning	D-IAM-4	user provisioning
-site-search	D-MKT-4	CMS site search (legacy)
-transactional-emails	D-MKT-2	transactional email (legacy)
-webhooks-journal-webhooks-journal	D-LOG-2	journal replay
-webhooks-webhooks	D-API-2	webhooks
+account-account-info	D-API-1	planned	portal details on the façade
+account-activity	D-ACT-2	planned	account activity = action audit
+account-audit-logs	D-ACT-2	planned	audit log = ActionInvocation audit
+analytics-reporting	D-QRY-6	planned	reports
+auth-oauth	D-API-3	planned	OAuth apps and tokens
+automation-actions-v4	D-FLOW-3	planned	custom workflow actions
+automation-automation-v4	D-FLOW-1	planned	workflows API
+automation-email-templates	D-MAIL-8	planned	email templates
+automation-sequences	D-FLOW-4	planned	sequences
+blog-comments	D-MKT-4	deferred	CMS blog (legacy)
+blog-details	D-MKT-4	deferred	CMS blog (legacy)
+blog-posts	D-MKT-4	deferred	CMS blog (legacy)
+blog-topics	D-MKT-4	deferred	CMS blog (legacy)
+business-units-business-units	D-IAM-5	planned	business units
+cms-authors	D-MKT-4	deferred	CMS
+cms-blog-settings	D-MKT-4	deferred	CMS
+cms-cms-content-audit	D-MKT-4	deferred	CMS
+cms-domains	D-MKT-4	deferred	CMS
+cms-hubdb	D-MKT-4	deferred	CMS data tables
+cms-knowledge-base	D-SVC-2	planned	knowledge base
+cms-media-bridge	D-MKT-4	deferred	CMS media integrations
+cms-pages	D-MKT-4	deferred	CMS pages
+cms-posts	D-MKT-4	deferred	CMS blog posts
+cms-site-search	D-MKT-4	deferred	CMS site search
+cms-source-code	D-MKT-4	deferred	CMS developer files
+cms-tags	D-MKT-4	deferred	CMS blog tags
+cms-url-mappings	D-MKT-4	deferred	CMS
+cms-url-redirects	D-MKT-4	deferred	CMS
+commerce-contracts	D-COM-1	planned	commerce
+commerce-payment-links	D-COM-1	planned	commerce
+commerce-payment-methods	D-COM-1	planned	commerce
+commerce-payments	D-COM-1	planned	commerce
+commerce-payments-settings	D-COM-1	planned	commerce
+commerce-paymentsaccounts	D-COM-1	planned	commerce
+commerce-price-books	D-COM-1	planned	commerce
+communication-preferences-subscriptions	D-MKT-2	planned	subscription types and opt-outs
+conversations-conversations	D-MAIL-5	planned	shared inbox
+conversations-custom-channels	D-MAIL-5	planned	inbox channels
+conversations-visitor-identification	D-MAIL-5	planned	chat visitor identity
+create-manage-workflows	D-FLOW-1	planned	workflows API (legacy)
+crm-activity-auto-associations	D-INT-4	planned	AUTO associations
+crm-app-uninstalls	D-EXT-1	deferred	app platform: install lifecycle
+crm-appointments	D-API-1	planned	object CRUD
+crm-associations	D-API-1	planned	association v4
+crm-associations-schema	D-STO-3	planned	association labels
+crm-calling-extensions	D-MAIL-10	deferred	calling (logging only in v1)
+crm-calls	D-API-1	planned	object CRUD
+crm-carts	D-API-1	planned	object CRUD
+crm-commerce-payments	D-API-1	planned	object CRUD
+crm-commerce-subscriptions	D-API-1	planned	object CRUD
+crm-communications	D-API-1	planned	object CRUD
+crm-companies	D-API-1	planned	object CRUD
+crm-contacts	D-API-1	planned	object CRUD
+crm-contracts	D-API-1	planned	object CRUD
+crm-courses	D-API-1	planned	object CRUD
+crm-crm-owners	D-API-1	planned	owners
+crm-custom-objects	D-API-1	planned	object CRUD (custom objects)
+crm-deal-splits	D-COM-1	planned	deal splits
+crm-deals	D-API-1	planned	object CRUD
+crm-discounts	D-API-1	planned	object CRUD
+crm-emails	D-API-1	planned	object CRUD
+crm-engagements	D-API-1	planned	object CRUD (legacy engagements)
+crm-exports	D-IAM-6	planned	exports (accumulation guard)
+crm-extensions	D-EXT-1	deferred	app platform: extensions
+crm-feedback-submissions	D-API-1	planned	object CRUD
+crm-fees	D-API-1	planned	object CRUD
+crm-forecast-types	D-QRY-6	planned	forecasts
+crm-goal-targets	D-API-1	planned	object CRUD
+crm-imports	D-SIM-2	planned	import through crm-sim
+crm-invoices	D-API-1	planned	object CRUD
+crm-leads	D-API-1	planned	object CRUD
+crm-limits-tracking	D-OPS-1	planned	tenant quotas, configured limits only
+crm-line-items	D-API-1	planned	object CRUD
+crm-listings	D-API-1	planned	object CRUD
+crm-lists	D-QRY-2	planned	lists
+crm-meetings	D-API-1	planned	object CRUD
+crm-notes	D-API-1	planned	object CRUD
+crm-notetaker-conversation-recap	D-INT-6	planned	meeting recap
+crm-object-library	D-ONT-6	planned	which standard objects are enabled
+crm-object-tags	D-ONT-7	planned	tag definitions; record-tag links are D-STO-3
+crm-orders	D-API-1	planned	object CRUD
+crm-owners	D-API-1	planned	owners (legacy)
+crm-partner-clients	NONE	out-of-scope	partner program (HubSpot-specific)
+crm-partner-services	NONE	out-of-scope	partner program (HubSpot-specific)
+crm-pipeline-governance	D-ACT-3	planned	stage rules
+crm-pipelines	D-API-1	planned	pipelines
+crm-postal-mail	D-API-1	planned	object CRUD
+crm-products	D-API-1	planned	object CRUD
+crm-projects	D-API-1	planned	object CRUD
+crm-properties	D-API-1	planned	properties
+crm-properties-v1-companies	D-API-1	planned	properties (legacy)
+crm-properties-v1-contacts	D-API-1	planned	properties (legacy)
+crm-properties-v1-deals	D-API-1	planned	properties (legacy)
+crm-property-validations	D-ACT-3	planned	property rules
+crm-public-app-crm-cards	D-EXT-1	deferred	app platform: record cards
+crm-public-app-feature-flags-v3	D-EXT-1	deferred	app platform: feature flags
+crm-quotes	D-API-1	planned	object CRUD
+crm-schemas	D-ONT-7	planned	custom object schemas
+crm-services	D-API-1	planned	object CRUD
+crm-subscription-lifecycle	D-COM-1	planned	subscriptions
+crm-tasks	D-API-1	planned	object CRUD
+crm-tasks-series	D-API-1	planned	recurring tasks
+crm-taxes	D-API-1	planned	object CRUD
+crm-tickets	D-API-1	planned	object CRUD
+crm-timeline	D-UI-1	planned	timeline events
+crm-transcriptions	D-MAIL-10	deferred	call transcripts
+crm-users	D-IAM-4	planned	users
+crm-video-conferencing-extension	D-MAIL-6	planned	meeting links
+data-studio-datasource-ingestion	D-DATA-1	planned	schema-agnostic versioned ingestion
+domains	D-MKT-4	deferred	CMS domains (legacy)
+email-analytics	D-MKT-2	planned	email statistics
+events-events	D-FLOW-2	planned	custom behavioural events (reports read them: D-QRY-6)
+events-manage-event-definitions	D-FLOW-2	planned	custom behavioural event definitions
+events-send-event-completions	D-FLOW-2	planned	custom behavioural event ingestion
+files-files	D-DOC-1	planned	Files API compatibility in hubspo-docs over spear (content, versions, delivery are spear's)
+forms	D-MKT-1	planned	forms (legacy)
+forms-v3-legacy	D-MKT-1	planned	forms (legacy)
+marketing-aeo	D-MKT-4	deferred	answer-engine optimisation, after CMS
+marketing-campaigns-public-api	D-MKT-3	planned	campaigns
+marketing-events-tracking	D-MKT-5	planned	marketing events
+marketing-forms	D-MKT-1	planned	forms
+marketing-lead-scoring	D-INT-3	planned	lead scoring
+marketing-marketing-emails	D-MKT-2	planned	marketing email
+marketing-marketing-events	D-MKT-5	planned	marketing events
+marketing-single-send	D-MKT-2	planned	marketing email
+marketing-subscriptions	D-MKT-2	planned	subscription types (legacy)
+marketing-transactional-single-send	D-MKT-2	planned	transactional email
+meta-origins	NONE	out-of-scope	HubSpot network origins; not to be impersonated
+modules	D-MKT-4	deferred	CMS modules (legacy)
+pages	D-MKT-4	deferred	CMS pages (legacy)
+reporting	D-QRY-6	planned	reports (legacy)
+scheduler-meetings	D-MAIL-6	planned	booking pages
+settings-multicurrency	D-COM-1	planned	currencies
+settings-tax-rates	D-COM-1	planned	tax rates
+settings-teams	D-IAM-2	planned	teams
+settings-user-provisioning	D-IAM-4	planned	user provisioning
+site-search	D-MKT-4	deferred	CMS site search (legacy)
+transactional-emails	D-MKT-2	planned	transactional email (legacy)
+webhooks-journal-webhooks-journal	D-LOG-2	planned	journal replay
+webhooks-webhooks	D-API-2	planned	webhooks

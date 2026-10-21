@@ -282,6 +282,44 @@ underneath and is never something a customer must learn.
   aliases, plan line 7). **This plan re-homes D-HUB-1/2/3/7 into HubSPO-rs
   and leaves D-HUB-4/5/6/8 in spear** (decision H-ADR-12).
 
+#### 2.5.1 Documents and delivery: what spear has (verified 2026-10-21)
+
+Read at spear `main` `c69cacb`. Three tiers, kept apart so that a type is
+never reported as a working feature:
+
+| tier | spear today | where |
+|---|---|---|
+| implemented | SHA-256 content store (`put`, `get`, `exists`, `hash`), filesystem-backed, written for message bodies | `src/content/mod.rs` |
+| implemented | mail ingest, `messages` write path, recipient placement, mailbox IAM plug | `src/mail/` |
+| type only | `UploadIntent` (correlation id, tenant, `DriveScope`, folder, file name, size, content hash, conflict policy, pipeline) | `src/sharepoint/intent.rs` |
+| type only | `DriveScope` with `Me`, `DriveId`, `SiteDrive` (`Simaf`, `Abap` reserved) | `src/sharepoint/drive_scope.rs` |
+| stub | Microsoft Graph transport (empty module) | `src/sharepoint/transport/mod.rs` |
+| planned, not built | `DeliveryIntent`, user-drive addressing (`DriveScopeKind::User`), directory GUID → Entra id, delivery RBAC through `mail::iam`, Graph `PUT` / upload session, `send_receipts` with delivery states, consumer API docs | `.claude/plans/onedrive-delivery-v1.md` D-DELIVER-1..6, 8 ("Nothing in this plan is built yet") |
+| planned, not built | `activity` and `send_receipts` tables keyed `(tenant_id, correlation_id)` | spear D-HUB-4/5, D-CONFIRM-1 |
+| missing, not planned | document records (metadata, folder, provenance, version) over the content store; a document reference type a consumer can hold; document authorization (the IAM plug covers `email` only) | `ISS-SPEAR-DOCUMENT-CONTRACTS` |
+
+HubSPO-rs claims none of this as working. **D-DOC-1** (HubSpot Files API)
+is a compatibility and orchestration deliverable in `hubspo-docs`. It does
+not build a content store, a version history, a SharePoint/OneDrive or
+Graph client, an authorization model for documents or a receipt model;
+spear owns all of them. A CRM record references a document; it never holds
+a second copy unless a separately authorized operation creates one. The
+three flows it composes:
+
+1. **Ingest.** Files API request → HubSPO-rs validation and RBAC → spear
+   content/document API → document reference → association on the CRM
+   record (D-STO-3 relation).
+2. **Delivery.** CRM `ActionDef` / workflow step → spear `DeliveryIntent`
+   → spear authorization → directory GUID resolution → Graph transport →
+   spear receipt and `activity` row → HubSPO-rs timeline (D-UI).
+3. **Lookup.** CRM record → association → authorized spear document
+   metadata → permitted retrieval or link.
+
+Files API operations are served only as far as spear's API supports them.
+Today that is none: the content store has no document record, folder or
+authorization, so D-DOC-1 waits on the spear contracts in
+`ISS-SPEAR-DOCUMENT-CONTRACTS` and on D-DELIVER-2..6 for delivery.
+
 ### 2.6 stalwart (mail server, out of process)
 
 - AdaWorldAPI fork of Stalwart 0.16.25. Only fork change: a feature-gated
@@ -980,6 +1018,7 @@ HubSpot property of the five core objects has a position (count pinned
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | D-STO-1 |
 | D-STO-5 | Property history via version log + P-HIST-1 probe | M | D-STO-1 |
 | D-STO-6 | Importer (value oracle, part 1): sandbox portal → crm-sim plan → commit; counts compared per object type | L | D-STO-3, W4-sim minimal |
+| D-DATA-1 | Schema-agnostic, versioned ingestion of structured data into Lance (incremental), separate from CRM object imports; HubSpot data-studio ingestion API on top (operator ruling 2026-10-21) | M | D-STO-1 |
 
 **Gate G2:** import of a seeded sandbox (≥ 10k contacts, 2k companies,
 3k deals, 5k engagements) reproduces record counts, association counts
@@ -1048,6 +1087,7 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | D-ONT-6 |
 | D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag. stalwart has none, and `EmailSubmission` returns empty `mdnBlobIds`/`dsnBlobIds` and `displayed: unknown`, so read and delivery receipts come from webhooks only | M | D-MAIL-3 |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | D-ACT-1 |
+| D-DOC-1 | HubSpot Files API compatibility in `hubspo-docs` over spear (§2.5.1): ingest, delivery and lookup flows; no second content store, version history, Graph client, authorization or receipt model; serves only what spear's API supports (operator ruling 2026-10-21) | M | D-ACT-1, D-IAM-3, D-STO-3; spear `ISS-SPEAR-DOCUMENT-CONTRACTS`, D-DELIVER-2..6 |
 
 > D-MAIL-4 amended 2026-10-11: `ThreadLinker` is implemented upstream by
 > spear `RootThreads` (spear #19). D-MAIL-4 consumes spear's thread key and
@@ -1113,6 +1153,7 @@ suggestion carries truth + evidence; zero direct writes from D-INT-*.
 | D-MKT-2 | Marketing email: drag-and-drop doc IR, send to lists via stalwart bulk submission, subscription types, unsubscribe, bounce handling | XL | G6, D-QRY-2 |
 | D-MKT-3 | Campaigns + attribution (first/last/linear/U/W/time-decay as report folds over touch points) | L | D-QRY-6 |
 | D-MKT-4 | Landing pages / CMS: askama/typst render of doc IR; out of v1 beyond forms + email | — | — |
+| D-MKT-5 | Marketing events: lifecycle, registrations, attendance, attribution (operator ruling 2026-10-21) | M | D-MKT-1, D-QRY-6 |
 | D-SVC-1 | Tickets, help desk inbox, SLAs (from W7), feedback surveys (NPS/CSAT/CES) | L | G7 |
 | D-SVC-2 | Knowledge base (doc IR + search) and customer portal (RLS-scoped to the contact's company) | L | D-SVC-1 |
 | D-COM-1 | Quotes, products, line items, invoices, payments on the commerce concepts (convergence with odoo-rs) | L | G4 |
@@ -1129,6 +1170,8 @@ phase; each new surface passes both oracles for its scope.
 | D-API-3 | OAuth apps / private app tokens mapped to RBAC actors with delegation | M | D-API-1, G5 |
 | D-API-4 | Migration runbook: shadow mode (read-only mirror of a live portal, nightly diff), then cut-over | L | D-API-1, D-STO-6 |
 | D-API-5 | Contract tests: replay recorded HubSpot API traffic against the façade | L | D-API-1 |
+| D-EXT-1 | App platform: extension definitions, CRM cards, feature flags, install / uninstall lifecycle on a2ui; HubSpot's React extension runtime is not promised. Deferred (operator ruling 2026-10-21) | L | D-UI-1, D-API-3 |
+| D-OPS-1 | Tenant quotas and capacity introspection: report configured limits, never invented HubSpot defaults (operator ruling 2026-10-21) | S | D-STO-4 |
 
 **Gate G11:** a recorded integration (e.g. a sync tool's traffic) replays
 with identical responses modulo ids/timestamps.
