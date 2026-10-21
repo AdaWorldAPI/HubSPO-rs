@@ -187,9 +187,38 @@
   universe accepted (1 red), empty stages reported (1 red — the narrow-board
   test, added after this disable first stayed green: every earlier fixture
   occupied all 21 stages).
-- Open (the saved-view half): view definitions as data, and sorting.
-  Quack has no `ORDER BY` (order is storage order), so a table view sorted
-  by a property needs its own decision.
+- *Done 2026-10-21, see the next section:* the saved-view half.
+
+## Saved views (D-QRY-3, saved-view half)
+
+- `hubspo-query::view::SavedView`: object, filter groups, at most one sort
+  key, columns. Data only; sharing and column visibility are decided at the
+  output edge.
+- `view::page(view, binder, offset, limit, runner)` returns one page of
+  ordinals in the view's order without `ORDER BY`:
+  - no key: `Agg::Rows`, storage order;
+  - `I32` key: the values at the page's first and last rank by
+    `Count`-threshold bisection (≤ 33 programs each), then only the band
+    between them (page + ties at its ends) is materialised and sorted;
+  - code key: one `GroupReduce Count`, then only codes overlapping the page
+    are materialised. Codes sort by numeric identity.
+  - Order: value, ties by ordinal ascending, records without a value last in
+    both directions.
+  - `Runner` is the caller's executor (count, rows, groups, code domain,
+    `i32_at`).
+- `tests/view_oracle.rs`: every page (sizes 1, 7, 50, 333) of no-sort, two
+  `I32` keys (one narrow-range nullable, one full-range with `i32::MIN/MAX`)
+  and two code keys (one nullable, one with an empty code), both directions,
+  filtered and not, equals a plain Rust sort over 3,000 records. A page at
+  offsets 0 / 1,000 / 2,000 costs the same bounded number of programs.
+- `hubspo-compat::views::open_view`: a filter or the sort on a hidden
+  property refuses the view; hidden or unknown columns are dropped.
+- Eight disable runs measured red: descending tie-break reversed,
+  `before` count ignored, nulls dropped, bisection off by one, code order
+  not reversed, band missing the view's filter, sort left out of the gate,
+  hidden column kept.
+- Open: a page-cost probe at 1M+ rows (the `ORDER BY` question waits on
+  it), multi-key sorts, view sharing (owner/team/everyone) and persistence.
 
 ## Lists (D-QRY-2)
 
