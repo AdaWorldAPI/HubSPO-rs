@@ -7,12 +7,14 @@
 //!
 //! ## What this is not
 //!
-//! - **Not actor assignment.** [`Catalogue::roles_of`] knows no actor: the
-//!   roles a user holds come from the request's identity
-//!   (`ogar_rbac::IdentityActors`, built once per request from the
-//!   authenticated user). Resolve them once per request, never per record:
-//!   a dir-sim `View` walk is a full membership scan (0.4–0.7 ms at
-//!   35k–263k rows, lance-graph D-RMAP-DIR-1).
+//! - **Not actor assignment.** [`Catalogue::roles_of`] knows no actor. A
+//!   user's roles come from the directory: a role is granted to a security
+//!   group in OGAR's versioned group-role policy, and [`request_actors`]
+//!   reads them through dir-sim's `ViewActors` once per request. Never per
+//!   record: a `View` walk is a full membership scan (0.4–0.7 ms at
+//!   35k–263k rows, lance-graph D-RMAP-DIR-1). An authenticated user
+//!   without a directory object goes through `ogar_rbac::IdentityActors`
+//!   instead; both are `ActorSource`s over the same binding.
 //! - **Not field masks.** [`Catalogue::field_mask_of`] is the trait default
 //!   (`None`, no column restriction). Column grants and the packed-run inner
 //!   mask are D-IAM-3.
@@ -45,6 +47,9 @@ use hubspo_port::{
 };
 use lance_graph_contract::rbac::{ActorId, ClassGrant, OpMask, RoleId};
 use lance_graph_contract::rbac_plug::{RbacAuthority, RbacBinding, RbacDrift};
+use lance_graph_dir_sim::View;
+use lance_graph_dir_sim::actors::{GroupRoles, ViewActors};
+use ogar_dir_core::Guid128;
 use ogar_rbac::{GrantSource, OgarRbac};
 use ogar_vocab::class_ids;
 
@@ -168,6 +173,42 @@ impl GrantSource for Catalogue {
 /// mirror disagrees on.
 pub fn bind() -> Result<RbacBinding, RbacDrift> {
     OgarRbac::new(Catalogue).bind(&RBAC_PLUG)
+}
+
+/// Why a request's roles could not be resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RoleRefusal {
+    /// The principal carries the SID of security groups whose grants were
+    /// never read, so its roles are not known in full.
+    UnreadGroups(Vec<Guid128>),
+}
+
+/// The principal's roles for one request: the grants of the security groups
+/// it carries in `view`, as `grants` (one version of OGAR's group-role
+/// policy, `GroupRoles::from_policy`) states them, kept only where
+/// `binding` declares the role.
+///
+/// Call once per request and hand the result to
+/// `binding.with_actors(..)`. A principal that is not a user in `view`
+/// holds no role.
+///
+/// # Errors
+///
+/// [`RoleRefusal::UnreadGroups`] when a group the principal carries was
+/// never read: the request is refused rather than decided on part of the
+/// principal's roles.
+pub fn request_actors(
+    view: &View<'_>,
+    principal: &Guid128,
+    grants: &GroupRoles,
+    binding: &RbacBinding,
+) -> Result<ViewActors, RoleRefusal> {
+    let actors = ViewActors::for_principal(view, principal, grants, binding);
+    if actors.unread_groups().is_empty() {
+        Ok(actors)
+    } else {
+        Err(RoleRefusal::UnreadGroups(actors.unread_groups().to_vec()))
+    }
 }
 
 #[cfg(test)]

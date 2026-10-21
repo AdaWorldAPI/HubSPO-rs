@@ -235,7 +235,33 @@
 - Five disable runs measured red: view-only given edit, sales given
   delete, admin given user delete, an unknown role defined, service losing
   tickets.
+- Request roles from the directory: `hubspo_iam::roles::request_actors`
+  wraps dir-sim's `ViewActors` (feature `rbac`): roles are granted to
+  security groups in one version of OGAR's group-role policy
+  (`GroupRoles::from_policy`), inherited through SID chains only, filtered
+  by the binding; an unread group refuses the request. 3 integration tests
+  over a dir-sim view (`tests/roles.rs`).
 - Open: `ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`.
+
+## Per-property read authorization (D-IAM-3, contract half)
+
+- `hubspo_iam::fields`: a read needs the outer mask (the role's
+  `WideFieldMask` over field positions: the property's lane, or 0 for the
+  packed run) and the inner grant (`PropertyGrants`, a set of stable
+  property ordinals per role and concept). The inner set names no lane, so
+  re-slotting a property changes no decision.
+- `WideFieldMask` cannot carry the inner set: `u8` positions cannot name
+  contact's 272 ordinals, and it has no schema version. Hence a local type,
+  no new upstream abstraction.
+- `Projection::compile` (once per request, per concept, one `SchemaVersion`);
+  `project` drops hidden and unknown properties from a row; `require`
+  refuses a filter, sort or aggregate that reads one; a different schema
+  version refuses everything.
+- 10 tests. Six disable runs measured red: inner grant ignored, outer mask
+  ignored, stale version accepted, `require` passing hidden properties,
+  one role's outer mask combined with another's inner grant, an unread
+  directory group accepted.
+- Not yet wired into any output path, and no default grants per preset.
 
 ## Harvest (D-ONT-1, public-catalog half)
 
