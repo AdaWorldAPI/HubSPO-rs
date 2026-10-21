@@ -5,18 +5,18 @@
 
 ## ISS-PRESET-VERBS-PROVISIONAL — the preset roles' verbs are written from seat names, not from HubSpot
 
-- **Status:** OPEN (D-IAM-1, 2026-10-21; operator to confirm or amend)
+- **Status:** DECIDED 2026-10-21 (operator, EXO-50 message 006): AMENDED, not approved. The six role names stay. The verb table stays only as a tagged compatibility/simulation fixture, never as tenant runtime access. EffectiveAccess = seat/subscription ceiling ∧ tenant permission grants ∧ owner/team scope ∧ per-property outer+ordinal authorization ∧ action-specific gates. Super Admin is an explicit status, not a bypass of tenant isolation, schema/policy validation or seat gates. Admin is not blanket FULL/DELETE. View-only has no implicit read of sensitive fields. ACT (email send, enrolment, invoice, bulk), DELETE and EXPORT each need an explicit grant and are never inherited from WRITE/CREATE. A missing, unknown, stale or unread tenant grant fails closed and never falls back to the fixture. The presets are not reported as HubSpot-verified until a sandbox oracle exists (ISS-ORACLE-PORTAL). Code still follows the old table until the D-IAM-3 code PR.
 - **Where:** `hubspo-iam::roles` (the verb table in the module docs), pinned by `each_seat_edits_exactly_its_own_concepts` and `only_the_admins_delete`.
 - **What:** every preset reads every plugged concept. Edit (write + create) and act: sales on contact, company, deal, lead, call, meeting, task, note, email, line item, quote/invoice (list edit only, sequence act only); service on contact, company, ticket, call, meeting, task, note, email (list edit); marketing on contact, company, campaign, email (list, note, task edit). Only the two admins delete; admin cannot delete users and teams (`PROJECT_ACTOR`). No HubSpot export backs this; the second oracle (rule 12) would.
 
 ## ISS-PERMISSION-SETS-NOT-ROLES — tenant permission sets cannot be `RoleId`s
 
-- **Status:** OPEN (D-IAM-1, 2026-10-21; design needed)
+- **Status:** DECIDED 2026-10-21 (operator, EXO-50 message 006): permission sets are versioned tenant DATA with stable numeric ids, separate from the static `RoleId` presets. A permission set may replace a user's configured permissions and is not assumed to only narrow a preset (HubSpot user-management docs, 2026-09). Seat, role template and grant are three different things. Implementation: D-IAM-1 / D-IAM-3 code PR.
 - **Where:** `lance_graph_contract::rbac::RoleId` is `&'static str`; `RbacPlug::roles` is a static list.
 - **What:** a HubSpot permission set is created by the tenant at runtime, so it cannot be a plugged role without leaking strings. Candidate shape: a permission set is tenant data that narrows one preset (per-concept verbs ⊆ the preset's, field masks per D-IAM-3), applied after the preset's decision; it never widens. Needs the request path (D-IAM-3) to apply it.
 ## ISS-SPEAR-DOCUMENT-CONTRACTS — spear has a content store but no document record, reference or authorization
 
-- **Status:** OPEN (found 2026-10-21 verifying D-DOC-1; upstream asks for the operator, not filed on spear)
+- **Status:** FILED UPSTREAM 2026-10-21 by the operator as spear#26 (contract and design request only, no implementation authorized): tenant-scoped DocumentRecord/DocumentRef, version witnesses, document ACL, folders, documented consumer/delivery API. HubSPO-rs builds none of it; D-DOC-1 stays Blocked until spear's contracts land.
 - **Where:** spear `main` `c69cacb`: `src/content/mod.rs` (implemented), `src/sharepoint/{intent,drive_scope}.rs` (types only), `src/sharepoint/transport/mod.rs` (stub), `.claude/plans/onedrive-delivery-v1.md` (nothing built).
 - **What HubSPO-rs needs from spear, and must not build itself:**
   1. A document record over the content store: tenant, content hash, name, media type, size, folder, provenance, version. The content store is a bare hash → bytes map written for message bodies.
