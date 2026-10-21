@@ -9,9 +9,12 @@
 //!   mask programs.
 //! - [`board`] (D-QRY-3, board half): count and amount per pipeline stage
 //!   as two grouped programs.
+//! - [`view`] (D-QRY-3, saved-view half): a saved view as data and one page
+//!   of it in sort order, sorted at the edge over Quack programs.
 //!
 //! [`Filter`]: lance_graph_quack::Filter
 
 pub mod board;
 pub mod filter;
 pub mod list;
+pub mod view;

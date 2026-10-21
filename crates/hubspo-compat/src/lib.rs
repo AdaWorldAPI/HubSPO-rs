@@ -7,5 +7,8 @@
 //! - [`contacts`]: the first authorized output path (D-IAM-3): one contact
 //!   by id, and the gate a search's filters and sorts pass before they run.
 //!   The REST wire format around it lands with D-API-1.
+//! - [`views`]: a saved view (D-QRY-3) through the same gate: a hidden
+//!   filter or sort refuses it, a hidden column is dropped.
 
 pub mod contacts;
+pub mod views;
