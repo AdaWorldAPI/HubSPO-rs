@@ -241,7 +241,7 @@
   (`GroupRoles::from_policy`), inherited through SID chains only, filtered
   by the binding; an unread group refuses the request. 3 integration tests
   over a dir-sim view (`tests/roles.rs`).
-- Open: `ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`.
+- 2026-10-21 ruling: the verb table is a fixture only. Runtime access must come from versioned tenant permission sets and fail closed (`ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`, both decided). The code still uses `Catalogue` until the D-IAM-3 code PR.
 
 ## Per-property read authorization (D-IAM-3, contract half)
 
