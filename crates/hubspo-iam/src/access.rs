@@ -86,7 +86,10 @@ impl RequestAccess {
     /// # Errors
     ///
     /// [`AccessError::WrongTenant`] when `policy` is another tenant's.
-    #[expect(clippy::too_many_arguments, reason = "one argument per input the access is compiled from")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one argument per input the access is compiled from"
+    )]
     pub fn compile(
         policy: &TenantPolicy,
         tenant: TenantId,
