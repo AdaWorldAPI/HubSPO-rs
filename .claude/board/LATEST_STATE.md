@@ -216,6 +216,27 @@
   `remove` keeping rows (1 red). A `live` gate inside `add` stayed green
   and was removed: `members` already applies it on every read.
 
+## Preset roles (D-IAM-1, presets half)
+
+- `hubspo_port::RBAC_ROLES` names six roles: `crm_super_admin`,
+  `crm_admin`, `crm_sales_user`, `crm_service_user`, `crm_marketing_user`,
+  `crm_view_only`. The plug declares them; `hubspo-port` no longer holds a
+  grant source.
+- `hubspo_iam::roles::Catalogue` is the `GrantSource`: one const grant per
+  plugged concept (22) per role, built by a `const fn` from the verb table in
+  the module docs. `field_mask_of` is the default (`None`); column grants are
+  D-IAM-3. `roles_of` is empty: actors come from the request's identity,
+  resolved once per request.
+- `hubspo_iam::roles::bind()` binds `RBAC_PLUG` against OGAR green.
+- 12 tests: bind, defined roles, plug boundary, every role reads every
+  concept, view-only reads only, only admins delete, admin vs super admin on
+  users, each seat's editable set (`==`), create travels with write, actor
+  decisions through `ActorSource`, sequence enrol vs edit.
+- Five disable runs measured red: view-only given edit, sales given
+  delete, admin given user delete, an unknown role defined, service losing
+  tickets.
+- Open: `ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`.
+
 ## Harvest (D-ONT-1, public-catalog half)
 
 - `scripts/fetch-hubspot-specs.sh` → `.cache/` (gitignored), then

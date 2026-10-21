@@ -13,14 +13,15 @@
 //!
 //! | plug | classids | today |
 //! |---|---|---|
-//! | [`RBAC_PLUG`] | the 15 CRM concepts + the 7 core concepts HubSpot objects converge on | binds green ([`bind`]); declares no roles |
+//! | [`RBAC_PLUG`] | the 15 CRM concepts + the 7 core concepts HubSpot objects converge on | declares the six preset roles; their grants and the bind are `hubspo-iam::roles` (D-IAM-1) |
 //! | [`HOT_PLUG`] | the 15 CRM concepts | refuses with `NoCapabilitiesFor` |
 //!
-//! Both gaps are deliberate:
+//! The role names live here because they are part of the plug declaration;
+//! the grants behind them live in `hubspo-iam`, which depends on this crate,
+//! so the bind is done there.
 //!
-//! - **No roles.** The role catalogue is D-IAM-1 (`hubspo-iam`). A role
-//!   declared here before its grants exist would either bind to nothing or
-//!   need invented grants.
+//! The capability gap is deliberate:
+//!
 //! - **No capabilities.** OGAR has no `crm_actions` table: capabilities are
 //!   declared only once HubSPO-rs implements them (dossier v3 §7, the
 //!   `geo_actions` rule). Until D-ACT-1, activating [`HOT_PLUG`] reports
@@ -30,9 +31,8 @@
 
 use lance_graph_contract::hotplug::HotPlug;
 use lance_graph_contract::ogar_codebook::render_classid;
-use lance_graph_contract::rbac::{ActorId, ClassGrant, RoleId};
-use lance_graph_contract::rbac_plug::{RbacBinding, RbacDrift, RbacPlug};
-use ogar_rbac::{GrantSource, OgarRbac};
+use lance_graph_contract::rbac::RoleId;
+use lance_graph_contract::rbac_plug::RbacPlug;
 use ogar_vocab::class_ids;
 use ogar_vocab::ports::PortSpec;
 
@@ -99,8 +99,29 @@ pub const RBAC_CLASSIDS: &[u16] = &[
     class_ids::PROJECT_ACTOR,
 ];
 
-/// The roles HubSPO-rs declares. Empty until D-IAM-1 (see the module docs).
-pub const RBAC_ROLES: &[RoleId] = &[];
+/// HubSpot's Super Admin: every verb on every plugged concept.
+pub const ROLE_SUPER_ADMIN: RoleId = "crm_super_admin";
+/// An account admin: every verb, except deleting users and teams.
+pub const ROLE_ADMIN: RoleId = "crm_admin";
+/// The sales seat preset.
+pub const ROLE_SALES_USER: RoleId = "crm_sales_user";
+/// The service seat preset.
+pub const ROLE_SERVICE_USER: RoleId = "crm_service_user";
+/// The marketing seat preset.
+pub const ROLE_MARKETING_USER: RoleId = "crm_marketing_user";
+/// Read-only access to every plugged concept.
+pub const ROLE_VIEW_ONLY: RoleId = "crm_view_only";
+
+/// The roles HubSPO-rs declares: HubSpot's preset roles (D-IAM-1). Their
+/// grants are `hubspo-iam::roles`; tenant permission sets are not roles.
+pub const RBAC_ROLES: &[RoleId] = &[
+    ROLE_SUPER_ADMIN,
+    ROLE_ADMIN,
+    ROLE_SALES_USER,
+    ROLE_SERVICE_USER,
+    ROLE_MARKETING_USER,
+    ROLE_VIEW_ONLY,
+];
 
 /// HubSPO-rs's RBAC declaration.
 pub const RBAC_PLUG: RbacPlug = RbacPlug {
@@ -138,43 +159,30 @@ pub fn render_class_id(public_name: &str) -> Option<u32> {
     class_id(public_name).map(|concept| render_classid(HubSpoPort::APP_PREFIX, concept))
 }
 
-/// The grant data behind [`RBAC_PLUG`]. Holds no roles and no grants until
-/// D-IAM-1, so it defines no role and authorizes nothing.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct HubSpoGrants;
-
-impl GrantSource for HubSpoGrants {
-    fn roles_of(&self, _actor: ActorId<'_>) -> &[RoleId] {
-        &[]
-    }
-
-    fn grants_of(&self, _role: RoleId) -> &[ClassGrant] {
-        &[]
-    }
-}
-
-/// Bind [`RBAC_PLUG`] against OGAR's authority. This checks that every
-/// plugged classid is minted in `ogar-vocab` and agrees with the contract's
-/// wire mirror.
-///
-/// # Errors
-///
-/// The drift OGAR reports when the plug names a class or role it does not
-/// know, or when OGAR and the mirror disagree.
-pub fn bind() -> Result<RbacBinding, RbacDrift> {
-    use lance_graph_contract::rbac_plug::RbacAuthority;
-    OgarRbac::new(HubSpoGrants).bind(&RBAC_PLUG)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use lance_graph_contract::ogar_codebook::{AppPrefix, classid_app_prefix, classid_concept};
-    use lance_graph_contract::rbac_plug::RbacAuthority;
+    use lance_graph_contract::rbac::{ActorId, ClassGrant};
+    use lance_graph_contract::rbac_plug::{RbacAuthority, RbacDrift};
+    use ogar_rbac::{GrantSource, OgarRbac};
     use ogar_vocab::capability_registry::{HotplugDrift, resolve_hotplug};
     use ogar_vocab::ports::HUBSPO_ALIASES;
     use ogar_vocab::{ConceptDomain, concepts_in_domain};
     use std::collections::BTreeSet;
+
+    /// A source that defines no role, for the refusal arms.
+    struct NoGrants;
+
+    impl GrantSource for NoGrants {
+        fn roles_of(&self, _actor: ActorId<'_>) -> &[RoleId] {
+            &[]
+        }
+
+        fn grants_of(&self, _role: RoleId) -> &[ClassGrant] {
+            &[]
+        }
+    }
 
     fn set(ids: &[u16]) -> BTreeSet<u16> {
         ids.iter().copied().collect()
@@ -207,26 +215,13 @@ mod tests {
         assert_eq!(set(RBAC_CLASSIDS), union);
     }
 
-    // ── RBAC: binds green, and each drift arm can fire ──
+    // ── RBAC: the plug's own refusal arms (the green bind is hubspo-iam's) ──
 
     #[test]
-    fn rbac_plug_binds_against_ogar() {
-        let binding = bind().expect("RBAC plug drifted from OGAR or the wire mirror");
-        assert_eq!(binding.consumer(), CONSUMER);
-        for &id in RBAC_CLASSIDS {
-            assert_eq!(binding.plugged(u32::from(id) << 16), Ok(id));
-        }
-    }
-
-    #[test]
-    fn a_concept_outside_the_plug_is_refused_not_granted() {
-        let binding = bind().expect("binds");
-        let patient = class_ids::PATIENT;
-        assert!(!RBAC_CLASSIDS.contains(&patient));
-        assert_eq!(
-            binding.plugged(u32::from(patient) << 16),
-            Err(RbacDrift::NotPlugged(patient))
-        );
+    fn role_names_are_distinct_and_plugged() {
+        let names: BTreeSet<RoleId> = RBAC_ROLES.iter().copied().collect();
+        assert_eq!(names.len(), 6);
+        assert_eq!(RBAC_PLUG.roles, RBAC_ROLES);
     }
 
     #[test]
@@ -237,7 +232,7 @@ mod tests {
             roles: &[],
         };
         assert_eq!(
-            OgarRbac::new(HubSpoGrants).bind(&plug),
+            OgarRbac::new(NoGrants).bind(&plug),
             Err(RbacDrift::UnknownClassid(0x05FE))
         );
     }
@@ -247,11 +242,11 @@ mod tests {
         let plug = RbacPlug {
             consumer: CONSUMER,
             classids: CRM_CLASSIDS,
-            roles: &["crm_super_admin"],
+            roles: &[ROLE_SUPER_ADMIN],
         };
         assert_eq!(
-            OgarRbac::new(HubSpoGrants).bind(&plug),
-            Err(RbacDrift::UnknownRole("crm_super_admin".into()))
+            OgarRbac::new(NoGrants).bind(&plug),
+            Err(RbacDrift::UnknownRole(ROLE_SUPER_ADMIN.into()))
         );
     }
 
@@ -311,11 +306,5 @@ mod tests {
             AppPrefix::from_prefix(HubSpoPort::APP_PREFIX),
             Some(AppPrefix::HubSpo)
         );
-    }
-
-    #[test]
-    fn the_authority_trait_and_bind_agree() {
-        // `bind()` is a convenience over the trait; it must not diverge.
-        assert_eq!(bind(), OgarRbac::new(HubSpoGrants).bind(&RBAC_PLUG));
     }
 }

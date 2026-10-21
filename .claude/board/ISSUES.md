@@ -3,6 +3,17 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-PRESET-VERBS-PROVISIONAL — the preset roles' verbs are written from seat names, not from HubSpot
+
+- **Status:** OPEN (D-IAM-1, 2026-10-21; operator to confirm or amend)
+- **Where:** `hubspo-iam::roles` (the verb table in the module docs), pinned by `each_seat_edits_exactly_its_own_concepts` and `only_the_admins_delete`.
+- **What:** every preset reads every plugged concept. Edit (write + create) and act: sales on contact, company, deal, lead, call, meeting, task, note, email, line item, quote/invoice (list edit only, sequence act only); service on contact, company, ticket, call, meeting, task, note, email (list edit); marketing on contact, company, campaign, email (list, note, task edit). Only the two admins delete; admin cannot delete users and teams (`PROJECT_ACTOR`). No HubSpot export backs this; the second oracle (rule 12) would.
+
+## ISS-PERMISSION-SETS-NOT-ROLES — tenant permission sets cannot be `RoleId`s
+
+- **Status:** OPEN (D-IAM-1, 2026-10-21; design needed)
+- **Where:** `lance_graph_contract::rbac::RoleId` is `&'static str`; `RbacPlug::roles` is a static list.
+- **What:** a HubSpot permission set is created by the tenant at runtime, so it cannot be a plugged role without leaking strings. Candidate shape: a permission set is tenant data that narrows one preset (per-concept verbs ⊆ the preset's, field masks per D-IAM-3), applied after the preset's decision; it never widens. Needs the request path (D-IAM-3) to apply it.
 ## ISS-SPEAR-DOCUMENT-CONTRACTS — spear has a content store but no document record, reference or authorization
 
 - **Status:** OPEN (found 2026-10-21 verifying D-DOC-1; upstream asks for the operator, not filed on spear)

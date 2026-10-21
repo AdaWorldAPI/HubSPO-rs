@@ -9,10 +9,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+hubspo-port = { path = "../hubspo-port" }
+lance-graph-contract.workspace = true
+ogar-rbac.workspace = true
+ogar-vocab.workspace = true
 lance-graph-dir-sim.workspace = true
 lance-graph-quack.workspace = true
 ogar-dir-core.workspace = true
-
 
 [dev-dependencies]
 lance-graph-mask-risc.workspace = true
