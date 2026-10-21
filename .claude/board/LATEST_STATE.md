@@ -222,7 +222,10 @@
   `crm_admin`, `crm_sales_user`, `crm_service_user`, `crm_marketing_user`,
   `crm_view_only`. The plug declares them; `hubspo-port` no longer holds a
   grant source.
-- `hubspo_iam::roles::Catalogue` is the `GrantSource`: one const grant per
+- *Superseded 2026-10-21 by the D-IAM-3 code PR (see the next section):*
+  `Catalogue` is renamed `PresetFixture`, bound only by
+  `bind_preset_fixture()`; `bind()` now grants nothing.
+- `hubspo_iam::roles::Catalogue` was the `GrantSource`: one const grant per
   plugged concept (22) per role, built by a `const fn` from the verb table in
   the module docs. `field_mask_of` is the default (`None`); column grants are
   D-IAM-3. `roles_of` is empty: actors come from the request's identity,
@@ -241,7 +244,7 @@
   (`GroupRoles::from_policy`), inherited through SID chains only, filtered
   by the binding; an unread group refuses the request. 3 integration tests
   over a dir-sim view (`tests/roles.rs`).
-- 2026-10-21 ruling: the verb table is a fixture only. Runtime access must come from versioned tenant permission sets and fail closed (`ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`, both decided). The code still uses `Catalogue` until the D-IAM-3 code PR.
+- 2026-10-21 ruling: the verb table is a fixture only. Runtime access must come from versioned tenant permission sets and fail closed (`ISS-PRESET-VERBS-PROVISIONAL`, `ISS-PERMISSION-SETS-NOT-ROLES`, both decided). The D-IAM-3 code PR implements it.
 
 ## Per-property read authorization (D-IAM-3, contract half)
 
@@ -265,6 +268,43 @@
   one role's outer mask combined with another's inner grant, an unread
   directory group accepted.
 - Not yet wired into any output path, and no default grants per preset.
+
+## Tenant access and the first output path (D-IAM-3, code half)
+
+- A role name grants nothing: `hubspo_iam::roles::bind()` binds the plug
+  through `RoleNames` (the six names, no grants), so the binding's own
+  decisions all refuse. The verb table is `PresetFixture`
+  (`bind_preset_fixture()`), for simulation and tests only.
+- `hubspo_iam::tenant`: `TenantPolicy` (one tenant, a declared
+  `PolicyVersion` plus a generation bumped on every change) holds
+  `PermissionSet`s with stable `PermissionSetId`s, assigned to a role or a
+  principal. A set lists its class grants, ownership scopes, outer field
+  masks, inner ordinals and named `ActionGrant`s; nothing is implied.
+  `Seat` is the ceiling (version, concepts, actions).
+- `hubspo_iam::access::RequestAccess::compile`, once per request per
+  concept: rows from the broadest scope of the sets that read the concept,
+  properties via `Projection::compile_holders`, plain verbs
+  (`READ`/`WRITE`/`CREATE`), and named actions, each needing its verb and
+  its gate in one set and the seat. `ACT`/`DELETE` are never plain verbs.
+  Stamped with concept, schema version, policy version and generation,
+  seat version and role-resolution version (`Stamp` gained `seat` and
+  `roles`); any difference refuses as `Stale`.
+- `hubspo_compat::contacts`: `lookup` answers `NotFound` for a missing
+  record, another tenant's record, an owner outside the rows, or no read
+  grant; it projects by ordinal before naming properties. `check_search`
+  refuses filters and sorts on hidden or unknown properties.
+- Tests: `hubspo-iam` 40 lib + 4 directory + 8 scope, `hubspo-compat` 6.
+  The negative tests from the ruling are all present (missing policy,
+  revocation, other concept or schema, view-only without the personal
+  properties, ACT/DELETE without a gate or seat, hidden-predicate search),
+  plus seat-change and role-change invalidation and super admin with no set.
+- Ten disable runs measured red: seat concept check, seat action check,
+  named-gate check, plain-verb check, scope from non-reading sets, role
+  version dropped from the stamp, tenant check, row-scope check, search
+  gate, `RoleNames` returning the preset grants.
+- Open: the store read that produces a record's `(ordinal, value)` pairs
+  (D-API-1), persistence of `TenantPolicy`, default sets per preset for
+  simulation, and every other output path (UI, export, events, workflows).
 
 ## Harvest (D-ONT-1, public-catalog half)
 

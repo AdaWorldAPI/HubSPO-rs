@@ -1,34 +1,43 @@
-//! D-IAM-1: HubSpot's preset roles as grants over the plugged concepts.
+//! D-IAM-1: the six preset role names, bound to OGAR's authority, and the
+//! request's roles read from the directory.
 //!
-//! [`Catalogue`] is the [`GrantSource`] behind `hubspo_port::RBAC_PLUG`:
-//! one `(concept, verbs)` grant per plugged concept for each of the six
-//! roles in `hubspo_port::RBAC_ROLES`. [`bind`] resolves the plug against
-//! OGAR's authority and returns the [`RbacBinding`] every decision reads.
+//! ## A role name grants nothing
 //!
-//! ## What this is not
+//! Operator ruling 2026-10-21 (`ISS-PRESET-VERBS-PROVISIONAL`): a role name
+//! describes a user; it does not grant a permission. [`bind`] binds
+//! `hubspo_port::RBAC_PLUG` through [`RoleNames`], a [`GrantSource`] that
+//! defines the six names and carries **no grants**, so every decision the
+//! returned binding makes on its own is a refusal. Access comes from the
+//! tenant's permission sets ([`crate::tenant`]) compiled per request
+//! ([`crate::access`]).
 //!
-//! - **Not actor assignment.** [`Catalogue::roles_of`] knows no actor. A
-//!   user's roles come from the directory: a role is granted to a security
-//!   group in OGAR's versioned group-role policy, and [`request_actors`]
-//!   reads them through dir-sim's `ViewActors` once per request. Never per
-//!   record: a `View` walk is a full membership scan (0.4–0.7 ms at
-//!   35k–263k rows, lance-graph D-RMAP-DIR-1). An authenticated user
-//!   without a directory object goes through `ogar_rbac::IdentityActors`
-//!   instead; both are `ActorSource`s over the same binding.
-//! - **Not field masks.** [`Catalogue::field_mask_of`] is the trait default
-//!   (`None`, no column restriction). Column grants and the packed-run inner
-//!   mask are D-IAM-3.
-//! - **Not tenant permission sets.** A HubSpot permission set is tenant
-//!   data, created at runtime, so it cannot be a `&'static str` role; it is
-//!   an open item on the D-IAM-1 row.
+//! The binding still does two jobs: it checks the plug against OGAR (every
+//! plugged concept minted, every name declared, the wire mirror in step) and
+//! it filters the roles a principal carries down to the declared names
+//! ([`request_actors`]).
 //!
-//! ## The verb table
+//! ## The preset fixture
 //!
-//! The presets are a provisional policy, written from the seat names, not
-//! from a HubSpot export. Every role reads every plugged concept; the table
-//! below lists what it may do beyond reading. `edit` is
-//! [`OpMask::WRITE`] | [`OpMask::CREATE`]; `act` adds [`OpMask::ACT`];
-//! `delete` is [`OpMask::DELETE`].
+//! [`PresetFixture`] keeps the provisional verb table below as a
+//! compatibility and simulation fixture: crm-sim and the tests may bind it
+//! through [`bind_preset_fixture`]. It is never a runtime access source and
+//! is not HubSpot-verified; no sandbox oracle has confirmed it.
+//!
+//! - **Not actor assignment.** Neither source knows an actor. A user's roles
+//!   come from the directory: a role is granted to a security group in
+//!   OGAR's versioned group-role policy, and [`request_actors`] reads them
+//!   through dir-sim's `ViewActors` once per request. Never per record: a
+//!   `View` walk is a full membership scan (0.4–0.7 ms at 35k–263k rows,
+//!   lance-graph D-RMAP-DIR-1). An authenticated user without a directory
+//!   object goes through `ogar_rbac::IdentityActors` instead; both are
+//!   `ActorSource`s over the same binding.
+//!
+//! ## The fixture's verb table
+//!
+//! Written from the seat names, not from a HubSpot export. Every role reads
+//! every plugged concept; the table lists what it may do beyond reading.
+//! `edit` is [`OpMask::WRITE`] | [`OpMask::CREATE`]; `act` adds
+//! [`OpMask::ACT`]; `delete` is [`OpMask::DELETE`].
 //!
 //! | role | edit + act | edit | act |
 //! |---|---|---|---|
@@ -38,12 +47,10 @@
 //! | service user | contact, company, ticket, call, meeting, task, note, email | list | — |
 //! | marketing user | contact, company, campaign, email | list, note, task | — |
 //! | view only | — | — | — |
-//!
-//! Only the two admin roles delete.
 
 use hubspo_port::{
-    RBAC_CLASSIDS, RBAC_PLUG, ROLE_ADMIN, ROLE_MARKETING_USER, ROLE_SALES_USER, ROLE_SERVICE_USER,
-    ROLE_SUPER_ADMIN, ROLE_VIEW_ONLY,
+    RBAC_CLASSIDS, RBAC_PLUG, RBAC_ROLES, ROLE_ADMIN, ROLE_MARKETING_USER, ROLE_SALES_USER,
+    ROLE_SERVICE_USER, ROLE_SUPER_ADMIN, ROLE_VIEW_ONLY,
 };
 use lance_graph_contract::rbac::{ActorId, ClassGrant, OpMask, RoleId};
 use lance_graph_contract::rbac_plug::{RbacAuthority, RbacBinding, RbacDrift};
@@ -140,13 +147,33 @@ const SERVICE: [ClassGrant; N] = grants(Preset::Service);
 const MARKETING: [ClassGrant; N] = grants(Preset::Marketing);
 const VIEW_ONLY: [ClassGrant; N] = grants(Preset::ViewOnly);
 
-/// The preset grant table: the [`GrantSource`] behind `RBAC_PLUG`.
+/// The six role names with no grants: the [`GrantSource`] [`bind`] uses.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Catalogue;
+pub struct RoleNames;
 
-impl GrantSource for Catalogue {
-    /// Always empty: actors come from the request's identity, not from the
-    /// catalogue (see the module docs).
+impl GrantSource for RoleNames {
+    /// Always empty: actors come from the request's identity.
+    fn roles_of(&self, _actor: ActorId<'_>) -> &[RoleId] {
+        &[]
+    }
+
+    /// Always empty: a role name grants nothing.
+    fn grants_of(&self, _role: RoleId) -> &[ClassGrant] {
+        &[]
+    }
+
+    fn defines_role(&self, role: RoleId) -> bool {
+        RBAC_ROLES.contains(&role)
+    }
+}
+
+/// The provisional preset verb table, kept as a compatibility and simulation
+/// fixture. Not a runtime access source (see the module docs).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PresetFixture;
+
+impl GrantSource for PresetFixture {
+    /// Always empty: actors come from the request's identity.
     fn roles_of(&self, _actor: ActorId<'_>) -> &[RoleId] {
         &[]
     }
@@ -164,15 +191,26 @@ impl GrantSource for Catalogue {
     }
 }
 
-/// Bind `RBAC_PLUG` against OGAR's authority with the preset grants.
+/// Bind `RBAC_PLUG` against OGAR's authority with the role names and no
+/// grants: the runtime binding.
 ///
 /// # Errors
 ///
 /// The drift OGAR reports when the plug names a concept it does not mint, a
-/// role the catalogue does not define, or a concept the contract's wire
+/// role [`RoleNames`] does not define, or a concept the contract's wire
 /// mirror disagrees on.
 pub fn bind() -> Result<RbacBinding, RbacDrift> {
-    OgarRbac::new(Catalogue).bind(&RBAC_PLUG)
+    OgarRbac::new(RoleNames).bind(&RBAC_PLUG)
+}
+
+/// Bind `RBAC_PLUG` with the [`PresetFixture`] grants, for simulation and
+/// compatibility tests only.
+///
+/// # Errors
+///
+/// As [`bind`].
+pub fn bind_preset_fixture() -> Result<RbacBinding, RbacDrift> {
+    OgarRbac::new(PresetFixture).bind(&RBAC_PLUG)
 }
 
 /// Why a request's roles could not be resolved.
@@ -214,7 +252,7 @@ pub fn request_actors(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hubspo_port::{CONSUMER, CRM_CLASSIDS, RBAC_ROLES};
+    use hubspo_port::{CONSUMER, CRM_CLASSIDS};
     use lance_graph_contract::rbac::{ClassId, ClassRbac, Operation};
     use lance_graph_contract::rbac_plug::ActorSource;
     use std::collections::BTreeSet;
@@ -239,7 +277,8 @@ mod tests {
 
     #[test]
     fn the_plug_binds_with_every_preset() {
-        let binding = bind().expect("RBAC plug drifted from OGAR or the wire mirror");
+        let binding =
+            bind_preset_fixture().expect("RBAC plug drifted from OGAR or the wire mirror");
         assert_eq!(binding.consumer(), CONSUMER);
         let bound: Vec<RoleId> = binding.declared_grants().iter().map(|(r, _)| *r).collect();
         assert_eq!(bound, RBAC_ROLES);
@@ -252,20 +291,49 @@ mod tests {
     }
 
     #[test]
+    fn the_runtime_bind_declares_every_role_and_grants_nothing() {
+        let binding = bind().expect("RBAC plug drifted from OGAR or the wire mirror");
+        let bound: Vec<RoleId> = binding.declared_grants().iter().map(|(r, _)| *r).collect();
+        assert_eq!(bound, RBAC_ROLES);
+        let ops = [
+            Operation::Read {
+                depth: lance_graph_contract::property::PrefetchDepth::Full,
+            },
+            write(),
+            Operation::Act {
+                action: "email.send",
+            },
+        ];
+        for &role in RBAC_ROLES {
+            assert!(RoleNames.defines_role(role), "{role}");
+            assert!(
+                binding.grants_for(role).is_ok_and(<[_]>::is_empty),
+                "{role}"
+            );
+            for &id in RBAC_CLASSIDS {
+                for op in &ops {
+                    assert_eq!(binding.permits(role, class(id), op), Ok(false), "{role}");
+                }
+            }
+        }
+        assert!(!RoleNames.defines_role("crm_owner"));
+    }
+
+    #[test]
     fn every_plug_role_is_defined_and_nothing_else_is() {
         for &role in RBAC_ROLES {
-            assert!(Catalogue.defines_role(role), "{role}");
+            assert!(PresetFixture.defines_role(role), "{role}");
         }
-        assert!(!Catalogue.defines_role("crm_owner"));
+        assert!(!PresetFixture.defines_role("crm_owner"));
         assert!(
-            !Catalogue.defines_role("CRM_SUPER_ADMIN"),
+            !PresetFixture.defines_role("CRM_SUPER_ADMIN"),
             "names are exact"
         );
     }
 
     #[test]
     fn a_concept_outside_the_plug_is_refused_not_granted() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         assert!(!RBAC_CLASSIDS.contains(&class_ids::PATIENT));
         assert_eq!(
             binding.permits(ROLE_SUPER_ADMIN, class(class_ids::PATIENT), &write()),
@@ -277,7 +345,7 @@ mod tests {
 
     #[test]
     fn every_role_reads_every_plugged_concept() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         let read = Operation::Read {
             depth: lance_graph_contract::property::PrefetchDepth::Full,
         };
@@ -290,7 +358,7 @@ mod tests {
 
     #[test]
     fn view_only_reads_and_nothing_more() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         for &id in RBAC_CLASSIDS {
             assert_eq!(verbs_of(&binding, ROLE_VIEW_ONLY, id), OpMask::READ);
         }
@@ -298,7 +366,7 @@ mod tests {
 
     #[test]
     fn only_the_admins_delete() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         let deleters: BTreeSet<RoleId> = RBAC_ROLES
             .iter()
             .copied()
@@ -313,7 +381,7 @@ mod tests {
 
     #[test]
     fn super_admin_holds_every_verb_everywhere_and_admin_falls_short_on_users() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         for &id in RBAC_CLASSIDS {
             assert_eq!(verbs_of(&binding, ROLE_SUPER_ADMIN, id), FULL);
             let admin = verbs_of(&binding, ROLE_ADMIN, id);
@@ -327,7 +395,7 @@ mod tests {
 
     #[test]
     fn each_seat_edits_exactly_its_own_concepts() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         let editable = |role| -> BTreeSet<u16> {
             RBAC_CLASSIDS
                 .iter()
@@ -384,7 +452,7 @@ mod tests {
 
     #[test]
     fn create_travels_with_write() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         for &role in RBAC_ROLES {
             for &id in RBAC_CLASSIDS {
                 let v = verbs_of(&binding, role, id);
@@ -414,7 +482,7 @@ mod tests {
 
     #[test]
     fn a_sales_rep_writes_deals_but_not_tickets() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         let rbac = binding.with_actors(Request);
         let held = |actor, concept| {
             rbac.actor_roles(actor)
@@ -429,7 +497,7 @@ mod tests {
 
     #[test]
     fn sequences_are_enrolled_not_edited_by_sales() {
-        let binding = bind().expect("binds");
+        let binding = bind_preset_fixture().expect("binds");
         let act = Operation::Act { action: "enroll" };
         let seq = class(class_ids::CRM_SEQUENCE);
         assert_eq!(binding.permits(ROLE_SALES_USER, seq, &act), Ok(true));
