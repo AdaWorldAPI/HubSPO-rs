@@ -217,8 +217,14 @@
   `before` count ignored, nulls dropped, bisection off by one, code order
   not reversed, band missing the view's filter, sort left out of the gate,
   hidden column kept.
-- Open: a page-cost probe at 1M+ rows (the `ORDER BY` question waits on
-  it), multi-key sorts, view sharing (owner/team/everyone) and persistence.
+- P-VIEW-1 (`examples/probe_view_page.rs`, 2026-10-21): 25-record pages
+  at 1M and 4M rows. `I32` key: 67 programs, 80–93 ms at 1M and 355–405 ms
+  at 4M, 62–80× one threshold scan and ~2× sorting every kept record at the
+  edge. Code key: 3 programs, ~1.7 scans, but the whole boundary code is
+  materialised. Linear in rows. The probe failed for `I32`; the rank-select
+  / `ORDER BY` ask is on EXO-50 (`ISS-ORDER-BY-RANK-SELECT`).
+- Open: that ask, multi-key sorts, view sharing (owner/team/everyone) and
+  persistence.
 
 ## Lists (D-QRY-2)
 

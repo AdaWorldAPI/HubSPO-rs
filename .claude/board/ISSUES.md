@@ -3,6 +3,21 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-ORDER-BY-RANK-SELECT — a page sorted by an `I32` key costs more than sorting everything
+
+- **Status:** OPEN 2026-10-21. Measured by P-VIEW-1; the ask is posted to lance-graph on EXO-50 (operator's instruction: probe first, then post with numbers). HubSPO-rs builds nothing in place of it.
+- **Where:** `hubspo-query::view::page`, the `I32` arm (`value_at` bisection).
+- **What:** without a rank-select or `ORDER BY` terminal, the page's first and last value are found by bisection: 67 `Count` programs per page whatever the offset. Measured (`cargo run --release -p hubspo-query --example probe_view_page`, 25-record pages, median of 5):
+
+  | rows | one threshold scan | `I32` page | full edge sort | code-key page |
+  |---|---|---|---|---|
+  | 1M | 1.16 ms | 80–93 ms | 40–46 ms | 1.9–2.2 ms |
+  | 4M | 5.71 ms | 355–405 ms | 196–230 ms | 8.9–9.3 ms |
+
+  An `I32` page is ~62–80 scans and about 2× a full sort at the edge. A code-key page is ~1.6–1.9 scans but materialises the whole boundary code (~25 % of rows with 4 codes). Costs scale linearly with rows.
+- **Ask:** one program that returns the value at a given rank of an `I32` lane over a filter (rank select), or a top-k / `ORDER BY` terminal returning the ordinals of ranks `[offset, offset + k)` with ties by ordinal. Either replaces the 66 bisection programs with one scan.
+
+
 ## ISS-PRESET-VERBS-PROVISIONAL — the preset roles' verbs are written from seat names, not from HubSpot
 
 - **Status:** DECIDED 2026-10-21 (operator, EXO-50 message 006): AMENDED, not approved. The six role names stay. The verb table stays only as a tagged compatibility/simulation fixture, never as tenant runtime access. EffectiveAccess = seat/subscription ceiling ∧ tenant permission grants ∧ owner/team scope ∧ per-property outer+ordinal authorization ∧ action-specific gates. Super Admin is an explicit status, not a bypass of tenant isolation, schema/policy validation or seat gates. Admin is not blanket FULL/DELETE. View-only has no implicit read of sensitive fields. ACT (email send, enrolment, invoice, bulk), DELETE and EXPORT each need an explicit grant and are never inherited from WRITE/CREATE. A missing, unknown, stale or unread tenant grant fails closed and never falls back to the fixture. The presets are not reported as HubSpot-verified until a sandbox oracle exists (ISS-ORACLE-PORTAL). Implemented in the D-IAM-3 code PR (2026-10-21): the runtime bind grants nothing, the table is `PresetFixture`.
