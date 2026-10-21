@@ -4,5 +4,8 @@
 //!
 //! - Zone: zone 3 (wire formats allowed).
 //! - Deliverables: D-API-1..5, D-STO-6 (`.claude/plans/hubspo-integration-v1.md`).
-//! - First real code lands in wave W11. Until then this crate is empty on
-//!   purpose; Wave 0 only fixes the workspace shape.
+//! - [`contacts`]: the first authorized output path (D-IAM-3): one contact
+//!   by id, and the gate a search's filters and sorts pass before they run.
+//!   The REST wire format around it lands with D-API-1.
+
+pub mod contacts;

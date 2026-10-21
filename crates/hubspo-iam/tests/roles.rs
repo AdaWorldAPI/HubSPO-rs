@@ -2,7 +2,7 @@
 //! preset roles, as one version of the group-role policy states them) and
 //! are decided against the preset grants through the plugged binding.
 
-use hubspo_iam::roles::{RoleRefusal, bind, request_actors};
+use hubspo_iam::roles::{RoleRefusal, bind, bind_preset_fixture, request_actors};
 use hubspo_port::{ROLE_ADMIN, ROLE_SALES_USER, ROLE_VIEW_ONLY};
 use lance_graph_contract::rbac::{ClassId, ClassRbac, Operation};
 use lance_graph_contract::rbac_plug::ActorSource;
@@ -92,7 +92,9 @@ fn roles_come_from_security_groups_through_the_binding() {
     let mut st = VersionStore::new();
     let v = st.observe("crm", 1, observed()).unwrap();
     let view = st.view(v).unwrap();
-    let binding = bind().unwrap();
+    // The preset fixture, so the roles' verbs can be checked; the runtime
+    // binding grants nothing (see `runtime_roles_resolve_but_grant_nothing`).
+    let binding = bind_preset_fixture().unwrap();
 
     let rep = request_actors(&view, &g(REP), &policy(), &binding).unwrap();
     assert_eq!(rep.roles(), &[ROLE_SALES_USER]);
@@ -152,4 +154,23 @@ fn an_unread_group_refuses_the_request() {
     gr.read(g(NEW), &[]);
     let newcomer = request_actors(&view, &g(NEWCOMER), &gr, &binding).unwrap();
     assert!(newcomer.roles().is_empty());
+}
+
+#[test]
+fn runtime_roles_resolve_but_grant_nothing() {
+    let mut st = VersionStore::new();
+    let v = st.observe("crm", 1, observed()).unwrap();
+    let view = st.view(v).unwrap();
+    let binding = bind().unwrap();
+    let lead = request_actors(&view, &g(LEAD), &policy(), &binding).unwrap();
+    let mut held = lead.roles().to_vec();
+    held.sort_unstable();
+    let mut want = vec![ROLE_ADMIN, ROLE_SALES_USER];
+    want.sort_unstable();
+    assert_eq!(held, want, "the names resolve");
+    assert!(!writes(
+        &binding.with_actors(lead.clone()),
+        lead.subject(),
+        class_ids::CRM_DEAL
+    ));
 }

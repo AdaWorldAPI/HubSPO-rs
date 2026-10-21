@@ -58,6 +58,20 @@ pub enum RowScope {
 }
 
 impl RowScope {
+    /// Whether a single row with owner code `owner` (`None`: no owner) is
+    /// admitted. For a one-record lookup; a scan uses [`RowScope::filter`].
+    #[must_use]
+    pub fn admits(&self, owner: Option<u32>) -> bool {
+        match self {
+            RowScope::All => true,
+            RowScope::Nothing => false,
+            RowScope::Rows { owners, unassigned } => match owner {
+                Some(code) => owners.binary_search(&code).is_ok(),
+                None => *unassigned,
+            },
+        }
+    }
+
     /// The filter over the owner lane `owner`, whose validity plane is
     /// `owner_valid` (a row has an owner exactly when its bit is set).
     ///

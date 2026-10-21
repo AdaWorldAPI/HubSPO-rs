@@ -75,7 +75,9 @@ impl Schema {
             .map(|p| p.position)
     }
 
-    fn property(&self, ordinal: u16) -> Option<&StandardProperty> {
+    /// The property at `ordinal`, if the schema has one.
+    #[must_use]
+    pub fn property(&self, ordinal: u16) -> Option<&StandardProperty> {
         self.properties
             .get(usize::from(ordinal))
             .filter(|p| p.position == ordinal)
@@ -243,10 +245,39 @@ pub struct Stamp {
     pub inner: u64,
     /// The outer policy version.
     pub outer: PolicyVersion,
+    /// The version of the principal's seat (the ceiling on what any grant
+    /// can unlock). [`SeatVersion::NONE`] where no seat model applies.
+    pub seat: SeatVersion,
+    /// The version of the principal's role resolution (the directory
+    /// snapshot and the group-role policy it was read from).
+    /// [`RoleVersion::NONE`] where roles are passed in directly.
+    pub roles: RoleVersion,
+}
+
+/// The version of a request's role resolution. Changing a group's grants or
+/// a principal's membership invalidates every projection compiled under the
+/// old roles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RoleVersion(pub u64);
+
+impl RoleVersion {
+    /// Roles passed in directly, not resolved from a directory.
+    pub const NONE: Self = Self(0);
+}
+
+/// The version of a principal's seat assignment. Changing the seat
+/// invalidates every projection compiled under the old one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SeatVersion(pub u32);
+
+impl SeatVersion {
+    /// No seat model: the role-keyed path of this module.
+    pub const NONE: Self = Self(0);
 }
 
 impl Stamp {
-    /// The current stamp for `schema` under `inner` and `outer`.
+    /// The current stamp for `schema` under `inner` and `outer`, with no
+    /// seat model ([`SeatVersion::NONE`]).
     #[must_use]
     pub fn of(schema: &Schema, inner: &PropertyGrants, outer: PolicyVersion) -> Self {
         Self {
@@ -254,7 +285,21 @@ impl Stamp {
             schema: schema.version,
             inner: inner.generation(),
             outer,
+            seat: SeatVersion::NONE,
+            roles: RoleVersion::NONE,
         }
+    }
+
+    /// The same stamp under `seat`.
+    #[must_use]
+    pub fn with_seat(self, seat: SeatVersion) -> Self {
+        Self { seat, ..self }
+    }
+
+    /// The same stamp under role resolution `roles`.
+    #[must_use]
+    pub fn with_roles(self, roles: RoleVersion) -> Self {
+        Self { roles, ..self }
     }
 }
 
@@ -300,9 +345,27 @@ impl Projection {
         policy: PolicyVersion,
         inner: &PropertyGrants,
     ) -> Self {
+        let holders = roles
+            .iter()
+            .map(|&role| (outer(role), inner.of(role, schema.concept)));
+        Self::compile_holders(schema, holders, Stamp::of(schema, inner, policy))
+    }
+
+    /// Compile from grant holders directly: each holder is one role or one
+    /// permission set, given as its outer mask and its inner ordinals on the
+    /// concept. A property is readable when one holder admits it on both
+    /// masks; a holder missing either admits nothing. `stamp` is what the
+    /// projection is valid for; its concept and schema must be `schema`'s.
+    #[must_use]
+    pub fn compile_holders<'a>(
+        schema: &Schema,
+        holders: impl IntoIterator<Item = (Option<WideFieldMask>, Option<&'a OrdinalSet>)>,
+        stamp: Stamp,
+    ) -> Self {
         let mut readable = OrdinalSet::new();
-        for &role in roles {
-            let (Some(mask), Some(granted)) = (outer(role), inner.of(role, schema.concept)) else {
+        let consistent = stamp.concept == schema.concept && stamp.schema == schema.version;
+        for (mask, granted) in holders {
+            let (Some(mask), Some(granted), true) = (mask, granted, consistent) else {
                 continue;
             };
             for p in schema.properties {
@@ -316,7 +379,7 @@ impl Projection {
             }
         }
         Self {
-            stamp: Stamp::of(schema, inner, policy),
+            stamp,
             known: u16::try_from(schema.properties.len()).unwrap_or(u16::MAX),
             readable,
         }

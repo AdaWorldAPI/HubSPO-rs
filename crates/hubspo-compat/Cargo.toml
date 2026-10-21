@@ -8,5 +8,16 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+hubspo-iam = { path = "../hubspo-iam" }
+hubspo-query = { path = "../hubspo-query" }
+lance-graph-contract.workspace = true
+
+[dev-dependencies]
+hubspo-generated = { path = "../hubspo-generated" }
+hubspo-port = { path = "../hubspo-port" }
+ogar-dir-core.workspace = true
+ogar-vocab.workspace = true
+
 [lints]
 workspace = true
