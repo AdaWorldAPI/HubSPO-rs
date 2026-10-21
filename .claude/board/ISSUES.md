@@ -3,6 +3,17 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-PRESET-VERBS-PROVISIONAL — the preset roles' verbs are written from seat names, not from HubSpot
+
+- **Status:** OPEN (D-IAM-1, 2026-10-21; operator to confirm or amend)
+- **Where:** `hubspo-iam::roles` (the verb table in the module docs), pinned by `each_seat_edits_exactly_its_own_concepts` and `only_the_admins_delete`.
+- **What:** every preset reads every plugged concept. Edit (write + create) and act: sales on contact, company, deal, lead, call, meeting, task, note, email, line item, quote/invoice (list edit only, sequence act only); service on contact, company, ticket, call, meeting, task, note, email (list edit); marketing on contact, company, campaign, email (list, note, task edit). Only the two admins delete; admin cannot delete users and teams (`PROJECT_ACTOR`). No HubSpot export backs this; the second oracle (rule 12) would.
+
+## ISS-PERMISSION-SETS-NOT-ROLES — tenant permission sets cannot be `RoleId`s
+
+- **Status:** OPEN (D-IAM-1, 2026-10-21; design needed)
+- **Where:** `lance_graph_contract::rbac::RoleId` is `&'static str`; `RbacPlug::roles` is a static list.
+- **What:** a HubSpot permission set is created by the tenant at runtime, so it cannot be a plugged role without leaking strings. Candidate shape: a permission set is tenant data that narrows one preset (per-concept verbs ⊆ the preset's, field masks per D-IAM-3), applied after the preset's decision; it never widens. Needs the request path (D-IAM-3) to apply it.
 ## ISS-SPEAR-DOCUMENT-CONTRACTS — spear has a content store but no document record, reference or authorization
 
 - **Status:** OPEN (found 2026-10-21 verifying D-DOC-1; upstream asks for the operator, not filed on spear)
@@ -30,7 +41,7 @@
 
 ## ISS-PACKED-RUN-RBAC-GRAIN — a packed run is granted as a whole, and contact's holds personal attributes
 
-- **Status:** DECIDED 2026-10-21 (operator) — option (b), with (c) allowed before the first tenant data. Storage grain may be a run; authorization grain is the property. Field 0 grants the container only; packed properties are checked one by one against an inner mask keyed by stable table ordinal, independent of the 256-position `WideFieldMask`. Requirements recorded on the D-IAM-3 row of STATUS_BOARD.
+- **Status:** DECIDED 2026-10-21 (operator) — option (b); (c) is defense in depth only, never a substitute. Contract: `hubspo_iam::fields` (D-IAM-3). Storage grain may be a run; authorization grain is the property. Field 0 grants the container only; packed properties are checked one by one against an inner mask keyed by stable table ordinal, independent of the 256-position `WideFieldMask`. Requirements recorded on the D-IAM-3 row of STATUS_BOARD.
 - **Where:** `hubspo-harvest::positions::PACKED_GROUPS`, `hubspo-schema::HubSpoClassView` (field 0).
 - **What:** a role granted field 0 of contact sees all 27 packed properties; one not granted it sees none. HubSpot's `facebook_ads_properties` group holds `date_of_birth`, `gender`, `marital_status` and `military_status` next to `school` and `seniority`, so a role cannot get the job fields without the personal ones. HubSpot itself marks all of them `non_sensitive`; DSGVO may not.
 - **Options for D-IAM-3:** (a) accept the grain and grant the run only to roles that may see all of it; (b) a second, run-internal mask keyed by table position (the run already stores positions); (c) keep the personal attributes out of the run by narrowing `PACKED_GROUPS` to names, with another group packed instead. Only (c) changes stored slots, and only before the first tenant data is written.
