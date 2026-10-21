@@ -257,7 +257,26 @@ fn main() {
             }),
             ..SavedView::default()
         };
-        for offset in [0usize, live_n / 2, live_n - LIMIT] {
+        // Offsets over the key's VALUED records, so the tail page still sorts;
+        // a nullable key adds one page wholly inside its null tail, reported
+        // on its own row (it runs no bisection).
+        let valued_n = if name == "amount" {
+            d.count(&Query {
+                filter: lance_graph_quack::Filter::and([
+                    lance_graph_quack::Filter::plane(Mask(0)),
+                    lance_graph_quack::Filter::plane(Mask(1)),
+                ]),
+                agg: Agg::Count,
+            })
+            .unwrap() as usize
+        } else {
+            live_n
+        };
+        let mut offsets = vec![0usize, valued_n / 2, valued_n - LIMIT];
+        if valued_n < live_n {
+            offsets.push(live_n - LIMIT);
+        }
+        for offset in offsets {
             let mut times = Vec::new();
             let (mut programs, mut materialised) = (0, 0);
             let mut got = Vec::new();
@@ -287,7 +306,7 @@ fn main() {
             );
             let p = median(times);
             println!(
-                "{:<16} {:>9} {:>9} {:>12} {:>10.2} {:>12.2} {:>10.1}",
+                "{:<16} {:>9} {:>9} {:>12} {:>10.2} {:>12.2} {:>10.1}{}",
                 format!(
                     "{name} {}",
                     if direction == Direction::Ascending {
@@ -301,7 +320,12 @@ fn main() {
                 materialised,
                 ms(p),
                 ms(full),
-                p.as_secs_f64() / scan.as_secs_f64()
+                p.as_secs_f64() / scan.as_secs_f64(),
+                if offset >= valued_n {
+                    "  (null tail)"
+                } else {
+                    ""
+                }
             );
         }
     }

@@ -7,14 +7,14 @@
 
 - **Status:** OPEN 2026-10-21. Measured by P-VIEW-1; the ask is posted to lance-graph on EXO-50 (operator's instruction: probe first, then post with numbers). HubSPO-rs builds nothing in place of it.
 - **Where:** `hubspo-query::view::page`, the `I32` arm (`value_at` bisection).
-- **What:** without a rank-select or `ORDER BY` terminal, the page's first and last value are found by bisection: 67 `Count` programs per page whatever the offset. Measured (`cargo run --release -p hubspo-query --example probe_view_page`, 25-record pages, median of 5):
+- **What:** without a rank-select or `ORDER BY` terminal, the page's first and last value are found by bisection: 67 `Count` programs for every page that has valued records, at any offset. A page wholly inside a nullable key's null tail runs 2 programs and no bisection (Codex on #46: the first run's `amount` tail page was such a page). Measured (`cargo run --release -p hubspo-query --example probe_view_page`, 25-record pages, median of 5 per run, ranges over three runs on a shared 4-core container):
 
-  | rows | one threshold scan | `I32` page | full edge sort | code-key page |
-  |---|---|---|---|---|
-  | 1M | 1.16 ms | 80–93 ms | 40–46 ms | 1.9–2.2 ms |
-  | 4M | 5.71 ms | 355–405 ms | 196–230 ms | 8.9–9.3 ms |
+  | rows | one threshold scan | `I32` page (valued) | full edge sort | code-key page | null-tail page |
+  |---|---|---|---|---|---|
+  | 1M | 1.16–2.31 ms | 79–142 ms | 38–66 ms | 2.0–3.2 ms | 0.36–0.54 ms |
+  | 4M | 5.34–5.85 ms | 352–421 ms | 196–242 ms | 8.9–13.9 ms | 1.5–2.3 ms |
 
-  An `I32` page is ~62–80 scans and about 2× a full sort at the edge. A code-key page is ~1.6–1.9 scans but materialises the whole boundary code (~25 % of rows with 4 codes). Costs scale linearly with rows.
+  A valued `I32` page is 60–100 scans (same-run ratio) and 1.6–2.8× a full sort at the edge. A code-key page is ~1–2.7 scans but materialises the whole boundary code (~25 % of rows with 4 codes). Costs scale linearly with rows.
 - **Ask:** one program that returns the value at a given rank of an `I32` lane over a filter (rank select), or a top-k / `ORDER BY` terminal returning the ordinals of ranks `[offset, offset + k)` with ties by ordinal. Either replaces the 66 bisection programs with one scan.
 
 
