@@ -284,8 +284,11 @@
   changes shape in 2026-09 (`/crm/v3/objects/x` → `/crm/objects/2026-09/x`),
   so the page slug, not the path, is what says it is the same function.
 - Measured 2026-10-20 (`coverage data/hubspot/api_surface.tsv
-  .cache/harvest.json`): about **1,518 distinct functions** — 980 current,
-  440 legacy-only, 98 beta-only. The stable harvest holds 912 of the 980
+  .cache/harvest.json`): about **1,506 distinct functions** — 980 current,
+  440 legacy-only, 86 beta-only (corrected from 1,518 / 98 on 2026-10-21:
+  12 beta pages also exist in legacy and were counted twice; the area
+  table's "beta only" column still counts beta pages without a *current*
+  counterpart, 98). The stable harvest holds 912 of the 980
   current ones.
 
 | area | current (2026-09) | in stable harvest | legacy only | beta only |
@@ -327,7 +330,8 @@
   functions per D-id and refuses a family with no row.
 - A test pins it to the committed data: every family in the surface has a
   row, no row names a family that is not there, every D-id is on
-  STATUS_BOARD, and the functions sum to 1,518.
+  STATUS_BOARD, and the functions sum to 1,506 (a page in both legacy and
+  beta counts once, under legacy).
 - The mapping is a judgement, recorded so it can be argued with row by row.
   Object CRUD of every object type (including types with no concept, like
   courses and listings) is D-API-1, which is why it holds a third of the
@@ -344,16 +348,16 @@
 | D-QRY-2 | 1 | 31 | 1 | 0 | 32 |
 | D-QRY-6 | 2 | 0 | 8 | 22 | 30 |
 | D-MKT-3 | 1 | 26 | 1 | 0 | 27 |
-| D-FLOW-1 | 2 | 0 | 16 | 10 | 26 |
 | D-UI-1 | 1 | 0 | 24 | 0 | 24 |
-| D-MKT-1 | 3 | 0 | 17 | 6 | 23 |
 | D-IAM-4 | 2 | 19 | 2 | 0 | 21 |
+| D-FLOW-1 | 2 | 0 | 16 | 4 | 20 |
 | D-LOG-2 | 1 | 19 | 0 | 0 | 19 |
-| D-API-2 | 1 | 8 | 9 | 0 | 17 |
 | D-FLOW-3 | 1 | 17 | 0 | 0 | 17 |
 | D-MAIL-10 | 2 | 13 | 4 | 0 | 17 |
-| D-ACT-3 | 2 | 11 | 4 | 0 | 15 |
+| D-MKT-1 | 3 | 0 | 17 | 0 | 17 |
+| D-API-2 | 1 | 8 | 9 | 0 | 17 |
 | D-SVC-2 | 1 | 0 | 0 | 15 | 15 |
+| D-ACT-3 | 2 | 11 | 4 | 0 | 15 |
 | D-MAIL-6 | 2 | 8 | 5 | 1 | 14 |
 | D-FLOW-4 | 1 | 9 | 4 | 0 | 13 |
 | D-STO-3 | 1 | 9 | 2 | 0 | 11 |
@@ -365,11 +369,11 @@
 | D-SIM-2 | 1 | 5 | 0 | 0 | 5 |
 | D-ACT-2 | 2 | 3 | 1 | 0 | 4 |
 | D-ONT-6 | 1 | 2 | 2 | 0 | 4 |
-| D-IAM-6 | 1 | 3 | 0 | 0 | 3 |
 | D-INT-4 | 1 | 0 | 0 | 3 | 3 |
+| D-IAM-6 | 1 | 3 | 0 | 0 | 3 |
 | D-IAM-5 | 1 | 1 | 0 | 0 | 1 |
 | D-INT-6 | 1 | 1 | 0 | 0 | 1 |
-| **total** | 140 | 980 | 440 | 98 | 1,518 |
+| **total** | 140 | 980 | 440 | 86 | 1,506 |
 
 - Unplanned, 134 functions in 11 groups (`ISS-SURFACE-UNPLANNED`):
   marketing events 37, app platform 22 (cards, extensions, feature flags,

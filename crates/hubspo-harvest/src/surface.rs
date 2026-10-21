@@ -323,7 +323,9 @@ pub struct DeliverableCount {
     pub current: usize,
     /// Legacy endpoints whose reference page has no current counterpart.
     pub legacy_only: usize,
-    /// Beta endpoints whose reference page has no current counterpart.
+    /// Beta endpoints whose reference page has neither a current nor a
+    /// legacy counterpart (a page in both legacy and beta is one function,
+    /// counted under legacy).
     pub beta_only: usize,
 }
 
@@ -345,6 +347,11 @@ pub fn by_deliverable(ops: &[Operation], map: &[MapRow]) -> Result<Vec<Deliverab
     let current: std::collections::BTreeSet<String> = ops
         .iter()
         .filter(|o| tab(&o.href) == "latest")
+        .map(|o| page_slug(&o.href))
+        .collect();
+    let legacy: std::collections::BTreeSet<String> = ops
+        .iter()
+        .filter(|o| o.version == "legacy")
         .map(|o| page_slug(&o.href))
         .collect();
     let mut out: Vec<DeliverableCount> = Vec::new();
@@ -373,7 +380,7 @@ pub fn by_deliverable(ops: &[Operation], map: &[MapRow]) -> Result<Vec<Deliverab
         } else if !current.contains(&page_slug(&op.href)) {
             if op.version == "legacy" {
                 c.legacy_only += 1;
-            } else {
+            } else if !legacy.contains(&page_slug(&op.href)) {
                 c.beta_only += 1;
             }
         }
@@ -590,7 +597,10 @@ mod tests {
         legacy_only.specs = vec!["v3/crm-contacts-v3.json".into()];
         let mut cur = op("2026-09", "crm", "GET", "/crm/objects/2026-09/contacts");
         cur.specs = vec!["crm-contacts-v2026-09.json".into()];
-        let ops = [legacy_same, legacy_only, cur, beta];
+        // The same page as `legacy_only`, in beta: one function, not two.
+        let mut beta_twin = op("2027-03-beta", "crm", "GET", "/crm/2027-03-beta/old");
+        beta_twin.specs = vec!["crm-new-v2027-03-beta.json".into()];
+        let ops = [legacy_same, legacy_only, cur, beta, beta_twin];
         let map =
             parse_map("crm-contacts\tD-API-1\tcrud\ncrm-new\tUNPLANNED\tnew\nunused\tD-API-1\tx\n")
                 .unwrap();
@@ -636,7 +646,7 @@ mod tests {
                 .iter()
                 .map(DeliverableCount::functions)
                 .sum::<usize>(),
-            1518
+            1506
         );
         let families: std::collections::BTreeSet<String> = ops
             .iter()
