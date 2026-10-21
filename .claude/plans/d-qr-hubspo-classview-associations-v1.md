@@ -50,3 +50,10 @@ S0 read `D-STO-3` and `hubspo-schema` status before touching code; coordinate wi
 **Do not:** implement HubSpot connectivity, modify D-STO-3 owner work, create non-verified association classes, assume every custom property fits 64 fields, move authorization after projection, or bypass #1640 ADMISSION B.
 
 **References:** [#1659](https://github.com/AdaWorldAPI/lance-graph/pull/1659), [#1660](https://github.com/AdaWorldAPI/lance-graph/pull/1660), [#1659→#1660 mapping](https://github.com/AdaWorldAPI/lance-graph/blob/research/qr256-elimination-rotation-20261021/.claude/plans/qr256-powershell-ordinal-polyfill-bridge-v1.md), [EXO-50](https://linear.app/exo-red/issue/EXO-50).
+
+
+## Shared rail-coordinate hypothesis (not a HubSPO fact)
+
+The [lance-graph capstone](https://github.com/AdaWorldAPI/lance-graph/blob/research/qr-abi-classview-capstone-20261021/.claude/plans/d-qr-abi-classview-rails-capstone-v1.md) proposes reading an existing `FacetCascade` as `facet_classid(4) + 6×(PART_OF8:ISA8)` and, independently, investigating two **logical** HHTL16 16×8-bit zippers. HubSPO's association labels, company/contact relationships, and tenant owner coordinates must **not** be assigned ISA or PART_OF semantics just because the bytes fit. The initial typed QR axes remain `ContactLocal8×CompanyLocal8` with an explicitly sourced association predicate and version/owner witness. Only use a hierarchy rail when real HubSPO schema/association metadata provides its meaning.
+
+**H9 additional probe:** compare 256 local contact/company codes against real table ordinals, then a 257th unseen ID; refuse truncation, aliased codebooks, changed owner/tenant and unobserved association. Synthetic testing only while D-STO-3 is queued. A `WideFieldMask` selects populated field positions, not external association label values.
