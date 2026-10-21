@@ -126,6 +126,9 @@ pub fn page<R: Runner>(
     runner: &mut R,
 ) -> Result<Vec<usize>, PageError<R::Error>> {
     let filter = compile(&view.object, &view.groups, binder)?;
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
     let Some(sort) = &view.sort else {
         let rows = runner.rows(&rows_query(&filter)).map_err(PageError::Run)?;
         return Ok(rows.into_iter().skip(offset).take(limit).collect());

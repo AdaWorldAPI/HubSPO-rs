@@ -18,6 +18,12 @@ use hubspo_query::view::SavedView;
 /// Check `view` against the request's access; on success, the columns the
 /// request may see, in the view's order.
 ///
+/// `table_concept` is the store's answer to which concept a table holds.
+/// The view's table must resolve to exactly the concept `access` was
+/// compiled for, or the view is refused before anything else is read: an
+/// unfiltered view of another object would otherwise pass every property
+/// check and be paged against a concept nobody authorized.
+///
 /// # Errors
 ///
 /// See [`SearchRefusal`].
@@ -26,7 +32,11 @@ pub fn open_view(
     current: &Stamp,
     schema: &Schema,
     view: &SavedView,
+    table_concept: impl Fn(&str) -> Option<u16>,
 ) -> Result<Vec<&'static str>, SearchRefusal> {
+    if table_concept(&view.object) != Some(access.stamp().concept) {
+        return Err(SearchRefusal::ObjectMismatch);
+    }
     let sorts: Vec<&str> = view.sort.iter().map(|s| s.property.as_str()).collect();
     check_search(access, current, schema, &view.groups, &sorts)?;
     let projection = access.projection(current).map_err(SearchRefusal::Refused)?;
@@ -59,6 +69,15 @@ mod tests {
     use lance_graph_contract::rbac::{ClassGrant, OpMask};
     use ogar_dir_core::Guid128;
     use ogar_vocab::class_ids;
+
+    /// The store's table → concept answer in these tests.
+    fn tables(name: &str) -> Option<u16> {
+        match name {
+            "contacts" => Some(class_ids::CRM_CONTACT),
+            "deals" => Some(class_ids::CRM_DEAL),
+            _ => None,
+        }
+    }
 
     const T: TenantId = TenantId(3);
     const C: u16 = class_ids::CRM_CONTACT;
@@ -146,8 +165,33 @@ mod tests {
             &["city", "date_of_birth", "email", "no_such", "firstname"],
         );
         assert_eq!(
-            open_view(&a, &now, &contact(), &v),
+            open_view(&a, &now, &contact(), &v, tables),
             Ok(vec!["city", "email", "firstname"])
+        );
+    }
+
+    #[test]
+    fn a_view_of_another_or_unknown_object_is_refused() {
+        let (a, now) = access();
+        // No filter, no sort: nothing for the property gate to catch.
+        let mut v = SavedView {
+            object: "deals".into(),
+            columns: vec!["email".into()],
+            ..SavedView::default()
+        };
+        assert_eq!(
+            open_view(&a, &now, &contact(), &v, tables),
+            Err(SearchRefusal::ObjectMismatch)
+        );
+        v.object = "no_such_table".into();
+        assert_eq!(
+            open_view(&a, &now, &contact(), &v, tables),
+            Err(SearchRefusal::ObjectMismatch)
+        );
+        v.object = "contacts".into();
+        assert_eq!(
+            open_view(&a, &now, &contact(), &v, tables),
+            Ok(vec!["email"])
         );
     }
 
@@ -160,7 +204,8 @@ mod tests {
                 &a,
                 &now,
                 &contact(),
-                &view("date_of_birth", "city", &["email"])
+                &view("date_of_birth", "city", &["email"]),
+                tables
             ),
             Err(SearchRefusal::Refused(Refusal::Hidden(dob)))
         );
@@ -169,7 +214,8 @@ mod tests {
                 &a,
                 &now,
                 &contact(),
-                &view("email", "date_of_birth", &["email"])
+                &view("email", "date_of_birth", &["email"]),
+                tables
             ),
             Err(SearchRefusal::Refused(Refusal::Hidden(dob)))
         );

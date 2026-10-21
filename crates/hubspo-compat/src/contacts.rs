@@ -101,6 +101,9 @@ pub enum SearchRefusal {
     SchemaMismatch,
     /// The request holds no read on the concept.
     NoRead,
+    /// The view's object is not the concept the access was compiled for, or
+    /// its table resolves to no concept.
+    ObjectMismatch,
 }
 
 /// Check a search's filter groups and sort properties against the request's

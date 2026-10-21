@@ -306,6 +306,26 @@ fn a_page_costs_programs_independent_of_its_offset() {
 }
 
 #[test]
+fn a_zero_length_page_is_empty_for_every_key() {
+    let mut d = data();
+    let cat = catalog();
+    let sorts = [
+        None,
+        Some(("amount", Direction::Ascending)),
+        Some(("score", Direction::Descending)),
+        Some(("lifecyclestage", Direction::Ascending)),
+    ];
+    for sort in sorts {
+        for offset in [0usize, 5, 10_000] {
+            d.programs.set(0);
+            let got = page(&view(sort, vec![]), &cat, offset, 0, &mut d).expect("page");
+            assert!(got.is_empty(), "{sort:?} {offset}");
+            assert_eq!(d.programs.get(), 0, "an empty page runs nothing");
+        }
+    }
+}
+
+#[test]
 fn an_unknown_sort_property_is_refused() {
     let mut d = data();
     let cat = catalog();
