@@ -325,8 +325,8 @@
 
 - `data/hubspot/surface_map.tsv` maps each of the 140 spec families
   (`crm-contacts`, `cms-pages`, …; `surface::family` strips directory,
-  `.json` and version) to the D-id that owns it, or `UNPLANNED` with a
-  reason. `hubspo-harvest deliverables <surface.tsv> <map.tsv>` counts the
+  `.json` and version) to the D-id that owns it (`NONE` when out of scope, `UNPLANNED` when
+  undecided) and a coverage class. `hubspo-harvest deliverables <surface.tsv> <map.tsv>` counts the
   functions per D-id and refuses a family with no row.
 - A test pins it to the committed data: every family in the surface has a
   row, no row names a family that is not there, every D-id is on
@@ -340,47 +340,57 @@
 | deliverable | spec families | current | legacy only | beta only | functions |
 |---|---|---|---|---|---|
 | D-API-1 | 43 | 377 | 168 | 0 | 545 |
-| D-MKT-4 | 21 | 208 | 77 | 0 | 285 |
-| UNPLANNED | 19 | 99 | 30 | 5 | 134 |
-| D-COM-1 | 10 | 39 | 3 | 28 | 70 |
+| D-MKT-4 | 22 | 208 | 77 | 5 | 290 |
+| D-COM-1 | 11 | 41 | 3 | 28 | 72 |
 | D-MKT-2 | 7 | 27 | 32 | 0 | 59 |
 | D-MAIL-5 | 3 | 22 | 25 | 0 | 47 |
+| D-MKT-5 | 2 | 27 | 10 | 0 | 37 |
 | D-QRY-2 | 1 | 31 | 1 | 0 | 32 |
-| D-QRY-6 | 2 | 0 | 8 | 22 | 30 |
+| D-QRY-6 | 3 | 2 | 8 | 22 | 32 |
 | D-MKT-3 | 1 | 26 | 1 | 0 | 27 |
 | D-UI-1 | 1 | 0 | 24 | 0 | 24 |
+| D-EXT-1 | 4 | 18 | 4 | 0 | 22 |
 | D-IAM-4 | 2 | 19 | 2 | 0 | 21 |
 | D-FLOW-1 | 2 | 0 | 16 | 4 | 20 |
+| D-DOC-1 | 1 | 6 | 13 | 0 | 19 |
 | D-LOG-2 | 1 | 19 | 0 | 0 | 19 |
+| D-API-2 | 1 | 8 | 9 | 0 | 17 |
 | D-FLOW-3 | 1 | 17 | 0 | 0 | 17 |
 | D-MAIL-10 | 2 | 13 | 4 | 0 | 17 |
 | D-MKT-1 | 3 | 0 | 17 | 0 | 17 |
-| D-API-2 | 1 | 8 | 9 | 0 | 17 |
-| D-SVC-2 | 1 | 0 | 0 | 15 | 15 |
+| NONE | 3 | 13 | 3 | 0 | 16 |
 | D-ACT-3 | 2 | 11 | 4 | 0 | 15 |
+| D-SVC-2 | 1 | 0 | 0 | 15 | 15 |
 | D-MAIL-6 | 2 | 8 | 5 | 1 | 14 |
 | D-FLOW-4 | 1 | 9 | 4 | 0 | 13 |
+| D-FLOW-2 | 3 | 12 | 0 | 0 | 12 |
+| D-ONT-7 | 2 | 12 | 0 | 0 | 12 |
 | D-STO-3 | 1 | 9 | 2 | 0 | 11 |
 | D-IAM-2 | 1 | 9 | 0 | 0 | 9 |
+| D-OPS-1 | 1 | 9 | 0 | 0 | 9 |
 | D-API-3 | 1 | 3 | 5 | 0 | 8 |
 | D-INT-3 | 1 | 0 | 0 | 8 | 8 |
-| D-ONT-7 | 1 | 6 | 0 | 0 | 6 |
 | D-MAIL-8 | 1 | 5 | 0 | 0 | 5 |
 | D-SIM-2 | 1 | 5 | 0 | 0 | 5 |
 | D-ACT-2 | 2 | 3 | 1 | 0 | 4 |
+| D-DATA-1 | 1 | 4 | 0 | 0 | 4 |
 | D-ONT-6 | 1 | 2 | 2 | 0 | 4 |
-| D-INT-4 | 1 | 0 | 0 | 3 | 3 |
 | D-IAM-6 | 1 | 3 | 0 | 0 | 3 |
+| D-INT-4 | 1 | 0 | 0 | 3 | 3 |
 | D-IAM-5 | 1 | 1 | 0 | 0 | 1 |
 | D-INT-6 | 1 | 1 | 0 | 0 | 1 |
 | **total** | 140 | 980 | 440 | 86 | 1,506 |
 
-- Unplanned, 134 functions in 11 groups (`ISS-SURFACE-UNPLANNED`):
-  marketing events 37, app platform 22 (cards, extensions, feature flags,
-  uninstalls), file manager 19, partner program 14, custom behavioural
-  events 12, portal limits 9, record tags 6, answer-engine optimisation 5,
-  data-studio ingestion 4, deal splits and forecasts 4, API metadata 2.
-- 4 mapping tests; seven disable runs measured red (unmapped family,
+- Coverage class per family (column 3 of the map, `ISS-SURFACE-COVERAGE-SEMANTICS`),
+  measured 2026-10-21: planned 109 families / 1,161 functions, deferred 28 /
+  329 (CMS 290, app platform 22, telephony 17), out of scope 3 / 16
+  (partner program, API metadata). None unclassified. The class says whether
+  work is planned; implementation is the D-id's status, never the map.
+- The 2026-10-21 rulings (`ISS-SURFACE-UNPLANNED`) moved the 134 former
+  `UNPLANNED` functions: new D-MKT-5 37, D-EXT-1 22 (deferred), D-DOC-1 19,
+  D-OPS-1 9, D-DATA-1 4; folded into D-FLOW-2 12, D-ONT-7 6, D-COM-1 2,
+  D-QRY-6 2, D-MKT-4 5 (deferred); out of scope 16.
+- 5 mapping tests; seven disable runs measured red (unmapped family,
   duplicate row, version-suffix strip, legacy-only by page slug, D-id not on
   the board, missing row, stale row), plus the legacy/beta double count
   (Codex on #40), red when the legacy check is removed.

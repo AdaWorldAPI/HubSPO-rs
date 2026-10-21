@@ -3,16 +3,22 @@
 > Open blockers and cross-repo follow-ups. Append new entries at the top;
 > change only the `Status` line of an existing entry.
 
+## ISS-SURFACE-COVERAGE-SEMANTICS — "mapped to a deliverable" read as "covered"
+
+- **Status:** RESOLVED 2026-10-21 — `surface_map.tsv` has a `coverage` column: planned / deferred / out-of-scope / unclassified. The committed-map test requires every one of the 140 families to carry a class that agrees with its deliverable (`UNPLANNED` ⇔ unclassified, `NONE` ⇔ out-of-scope, a D-id for planned or deferred), and pins the function split: planned 1,161, deferred 329, out of scope 16. A class says whether work is planned, never that it is implemented; implementation is the D-id's status on STATUS_BOARD.
+- **Where:** `hubspo-harvest::surface::{Coverage, parse_map, by_coverage}`; `deliverables` command.
+- **What:** the deliverable map assigned every family to a D-id or `UNPLANNED`, so a report of "families assigned" could be read as coverage. Deferred families (CMS, app platform, telephony) and out-of-scope ones were indistinguishable from planned ones.
+
 ## ISS-SURFACE-UNPLANNED — 134 documented HubSpot functions belong to no deliverable
 
-- **Status:** OPEN (found 2026-10-20 by D-API-0's deliverable map; operator decision)
+- **Status:** DECIDED 2026-10-21 (operator). New D-ids: D-MKT-5 (marketing events), D-EXT-1 (app platform, deferred; a2ui, not HubSpot's React runtime), D-DOC-1 (file manager as a façade over spear), D-OPS-1 (tenant quotas), D-DATA-1 (data-studio ingestion). Folded: custom behavioural events → D-FLOW-2, record tags → D-ONT-7 + D-STO-3, deal splits → D-COM-1, forecast types → D-QRY-6, AEO → D-MKT-4 (deferred). Out of scope: partner program, API metadata (HubSpot origin IPs). 118 functions assigned, 16 out of scope; `surface_map.tsv` carries the class per family (`ISS-SURFACE-COVERAGE-SEMANTICS`).
 - **Where:** `data/hubspot/surface_map.tsv` rows with `UNPLANNED`.
 - **What:** 19 spec families (134 functions) have no D-id: marketing events (37), app platform (22: CRM cards, extensions, feature flags, uninstall hooks), file manager (19), partner program (14), custom behavioural events (12), portal limits (9), record tags (6), answer-engine optimisation (5), data-studio ingestion (4), deal splits and forecasts (4), API metadata (2).
 - **Decide per group:** a new D-id, folded into an existing one (the map row changes and the test re-pins), or out of scope (the row stays `UNPLANNED` with the reason). Candidates that fit existing work: custom behavioural events as workflow triggers (D-FLOW-2) and report inputs (D-QRY-6); file manager onto spear's document hub; record tags as a ClassView property.
 
 ## ISS-PACKED-RUN-RBAC-GRAIN — a packed run is granted as a whole, and contact's holds personal attributes
 
-- **Status:** OPEN (found 2026-10-20 by ISS-FIELD-MASK-256's resolution; input for D-IAM-3)
+- **Status:** DECIDED 2026-10-21 (operator) — option (b), with (c) allowed before the first tenant data. Storage grain may be a run; authorization grain is the property. Field 0 grants the container only; packed properties are checked one by one against an inner mask keyed by stable table ordinal, independent of the 256-position `WideFieldMask`. Requirements recorded on the D-IAM-3 row of STATUS_BOARD.
 - **Where:** `hubspo-harvest::positions::PACKED_GROUPS`, `hubspo-schema::HubSpoClassView` (field 0).
 - **What:** a role granted field 0 of contact sees all 27 packed properties; one not granted it sees none. HubSpot's `facebook_ads_properties` group holds `date_of_birth`, `gender`, `marital_status` and `military_status` next to `school` and `seniority`, so a role cannot get the job fields without the personal ones. HubSpot itself marks all of them `non_sensitive`; DSGVO may not.
 - **Options for D-IAM-3:** (a) accept the grain and grant the run only to roles that may see all of it; (b) a second, run-internal mask keyed by table position (the run already stores positions); (c) keep the personal attributes out of the run by narrowing `PACKED_GROUPS` to names, with another group packed instead. Only (c) changes stored slots, and only before the first tenant data is written.

@@ -274,32 +274,85 @@ pub fn family(spec: &str) -> String {
     }
 }
 
-/// One row of the family → deliverable map: the D-id that owns a spec
-/// family, or `UNPLANNED` with the reason in `note`.
+/// What the map says about a family's place in the plan. Mapping a family
+/// to a D-id records ownership, not progress: whether the D-id is built is
+/// STATUS_BOARD's business (`ISS-SURFACE-COVERAGE-SEMANTICS`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Coverage {
+    /// Owned by a D-id that is in scope for this plan.
+    Planned,
+    /// Owned by a D-id, but its work is explicitly after v1.
+    Deferred,
+    /// Deliberately not rebuilt; the deliverable column is [`NONE`].
+    OutOfScope,
+    /// Not yet decided; the deliverable column is [`UNPLANNED`].
+    Unclassified,
+}
+
+impl Coverage {
+    /// The TSV spelling.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Deferred => "deferred",
+            Self::OutOfScope => "out-of-scope",
+            Self::Unclassified => "unclassified",
+        }
+    }
+
+    fn parse(s: &str) -> Option<Self> {
+        [
+            Self::Planned,
+            Self::Deferred,
+            Self::OutOfScope,
+            Self::Unclassified,
+        ]
+        .into_iter()
+        .find(|c| c.as_str() == s)
+    }
+}
+
+/// One row of the family → deliverable map.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MapRow {
     pub family: String,
+    /// The owning D-id, [`NONE`] when out of scope, [`UNPLANNED`] when
+    /// unclassified.
     pub deliverable: String,
+    pub coverage: Coverage,
     pub note: String,
 }
 
-/// The deliverable value for a family no deliverable owns yet.
+/// The deliverable value for a family no decision covers yet.
 pub const UNPLANNED: &str = "UNPLANNED";
 
-/// Read the map TSV (`family <TAB> deliverable <TAB> note`).
+/// The deliverable value for a family deliberately out of scope.
+pub const NONE: &str = "NONE";
+
+/// Read the map TSV (`family <TAB> deliverable <TAB> coverage <TAB> note`).
 ///
 /// # Errors
 ///
-/// The 1-based number of the first line without three fields, with an
-/// empty field, or naming a family twice.
+/// The 1-based number of the first line without four fields, with an empty
+/// field, naming a family twice, or whose deliverable does not fit its
+/// coverage: `UNPLANNED` only and always when unclassified, `NONE` only
+/// and always when out of scope, a `D-` id when planned or deferred.
 pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
     let mut out: Vec<MapRow> = Vec::new();
     for (i, line) in tsv.lines().enumerate().filter(|(_, l)| !l.is_empty()) {
         let f: Vec<&str> = line.split('\t').collect();
-        let [family, deliverable, note] = f[..] else {
+        let [family, deliverable, coverage, note] = f[..] else {
             return Err(i + 1);
         };
-        if [family, deliverable, note].iter().any(|s| s.is_empty())
+        let coverage = Coverage::parse(coverage).ok_or(i + 1)?;
+        let fits = match coverage {
+            Coverage::Unclassified => deliverable == UNPLANNED,
+            Coverage::OutOfScope => deliverable == NONE,
+            Coverage::Planned | Coverage::Deferred => deliverable.starts_with("D-"),
+        };
+        if !fits
+            || [family, deliverable, note].iter().any(|s| s.is_empty())
             || out.iter().any(|r| r.family == family)
         {
             return Err(i + 1);
@@ -307,10 +360,28 @@ pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
         out.push(MapRow {
             family: family.into(),
             deliverable: deliverable.into(),
+            coverage,
             note: note.into(),
         });
     }
     Ok(out)
+}
+
+/// Count the surface per coverage class, in [`Coverage`] order.
+///
+/// # Errors
+///
+/// As [`by_deliverable`].
+pub fn by_coverage(ops: &[Operation], map: &[MapRow]) -> Result<Vec<DeliverableCount>, String> {
+    let mut regrouped: Vec<MapRow> = map
+        .iter()
+        .map(|r| MapRow {
+            deliverable: r.coverage.as_str().to_string(),
+            ..r.clone()
+        })
+        .collect();
+    regrouped.sort_by_key(|r| r.coverage);
+    by_deliverable(ops, &regrouped)
 }
 
 /// The documented functions one deliverable owns.
@@ -602,7 +673,7 @@ mod tests {
         beta_twin.specs = vec!["crm-new-v2027-03-beta.json".into()];
         let ops = [legacy_same, legacy_only, cur, beta, beta_twin];
         let map =
-            parse_map("crm-contacts\tD-API-1\tcrud\ncrm-new\tUNPLANNED\tnew\nunused\tD-API-1\tx\n")
+            parse_map("crm-contacts\tD-API-1\tplanned\tcrud\ncrm-new\tUNPLANNED\tunclassified\tnew\nunused\tD-API-1\tplanned\tx\n")
                 .unwrap();
         let c = by_deliverable(&ops, &map).unwrap();
         let rows: Vec<(&str, usize, usize, usize, usize)> = c
@@ -625,17 +696,52 @@ mod tests {
 
     #[test]
     fn map_rows_are_complete_and_unique() {
-        assert_eq!(parse_map("a\tD-X-1\n"), Err(1));
-        assert_eq!(parse_map("a\t\tnote\n"), Err(1));
-        assert_eq!(parse_map("a\tD-X-1\tn\na\tD-X-2\tn\n"), Err(2));
+        assert_eq!(parse_map("a\tD-X-1\tn\n"), Err(1));
+        assert_eq!(parse_map("a\t\tplanned\tnote\n"), Err(1));
+        assert_eq!(parse_map("a\tD-X-1\tsoon\tn\n"), Err(1));
         assert_eq!(
-            parse_map("a\tD-X-1\tn\nb\tD-X-1\tn\n").map(|m| m.len()),
+            parse_map("a\tD-X-1\tplanned\tn\na\tD-X-2\tplanned\tn\n"),
+            Err(2)
+        );
+        assert_eq!(
+            parse_map("a\tD-X-1\tplanned\tn\nb\tD-X-1\tdeferred\tn\n").map(|m| m.len()),
             Ok(2)
+        );
+    }
+
+    #[test]
+    fn deliverable_and_coverage_must_agree() {
+        // Refused: each coverage with the wrong kind of deliverable.
+        for bad in [
+            "a\tUNPLANNED\tplanned\tn",
+            "a\tNONE\tdeferred\tn",
+            "a\tD-X-1\tout-of-scope\tn",
+            "a\tUNPLANNED\tout-of-scope\tn",
+            "a\tD-X-1\tunclassified\tn",
+            "a\tNONE\tunclassified\tn",
+        ] {
+            assert_eq!(parse_map(bad), Err(1), "{bad}");
+        }
+        // Accepted: each coverage with its own kind.
+        let ok = "a\tD-X-1\tplanned\tn\nb\tD-X-2\tdeferred\tn\nc\tNONE\tout-of-scope\tn\nd\tUNPLANNED\tunclassified\tn\n";
+        let rows = parse_map(ok).unwrap();
+        let cov: Vec<Coverage> = rows.iter().map(|r| r.coverage).collect();
+        assert_eq!(
+            cov,
+            [
+                Coverage::Planned,
+                Coverage::Deferred,
+                Coverage::OutOfScope,
+                Coverage::Unclassified
+            ]
         );
     }
 
     /// The committed map covers every family of the committed surface, names
     /// only families that exist, and only D-ids on the status board.
+    const COVERAGE_PLANNED: usize = 1161;
+    const COVERAGE_DEFERRED: usize = 329;
+
     #[test]
     fn the_committed_map_matches_the_surface_and_the_board() {
         let ops = parse_tsv(include_str!("../../../data/hubspot/api_surface.tsv")).unwrap();
@@ -659,9 +765,23 @@ mod tests {
                 row.family
             );
         }
+        // Coverage of the 1,506 functions, pinned: every family is decided.
+        let cov: Vec<(String, usize)> = by_coverage(&ops, &map)
+            .unwrap()
+            .into_iter()
+            .map(|c| (c.deliverable.clone(), c.functions()))
+            .collect();
+        assert_eq!(
+            cov,
+            [
+                ("planned".to_string(), COVERAGE_PLANNED),
+                ("deferred".to_string(), COVERAGE_DEFERRED),
+                ("out-of-scope".to_string(), 16),
+            ]
+        );
         let board = include_str!("../../../.claude/board/STATUS_BOARD.md");
         for row in &map {
-            if row.deliverable != UNPLANNED {
+            if row.deliverable.starts_with("D-") {
                 assert!(
                     board.contains(&format!("| {} |", row.deliverable)),
                     "{} is not on the status board",
