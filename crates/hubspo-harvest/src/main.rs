@@ -25,6 +25,11 @@
 //! output already holds, and how many also exist under the current version:
 //! `version <TAB> area <TAB> operations <TAB> harvested <TAB> in_current`.
 //!
+//! `hubspo-harvest deliverables <surface.tsv> <map.tsv>` — prints, per
+//! deliverable in the map, the documented functions it owns:
+//! `deliverable <TAB> families <TAB> current <TAB> legacy_only <TAB>
+//! beta_only <TAB> functions`. A family without a map row is an error.
+//!
 //! `hubspo-harvest emit <table.tsv>` — prints the generated Rust for
 //! `hubspo-generated/src/standard_properties.rs`.
 
@@ -194,6 +199,24 @@ fn run(args: &[String]) -> Result<(), String> {
             }
             Ok(())
         }
+        [cmd, table, map] if cmd == "deliverables" => {
+            let ops = surface::parse_tsv(&read(table)?).map_err(|l| format!("{table}: bad line {l}"))?;
+            let map_rows = surface::parse_map(&read(map)?).map_err(|l| format!("{map}: bad line {l}"))?;
+            let counts = surface::by_deliverable(&ops, &map_rows)
+                .map_err(|f| format!("{map}: no row for spec family {f}"))?;
+            for c in counts {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    c.deliverable,
+                    c.families,
+                    c.current,
+                    c.legacy_only,
+                    c.beta_only,
+                    c.functions()
+                );
+            }
+            Ok(())
+        }
         [cmd, table] if cmd == "emit" => {
             let rows = read_table(Path::new(table))?;
             print!("{}", positions::emit(&rows));
@@ -201,7 +224,7 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         _ => Err(
             "usage: hubspo-harvest select <index.json> | report <cache-dir> | objdef <page.html> \
-             | guide <page.md> | surface <page.html>... | coverage <surface.tsv> <harvest.json> | merge <table.tsv> <object> <found.tsv> | emit <table.tsv>"
+             | guide <page.md> | surface <page.html>... | coverage <surface.tsv> <harvest.json> | deliverables <surface.tsv> <map.tsv> | merge <table.tsv> <object> <found.tsv> | emit <table.tsv>"
                 .to_string(),
         ),
     }
