@@ -382,7 +382,8 @@
   data-studio ingestion 4, deal splits and forecasts 4, API metadata 2.
 - 4 mapping tests; seven disable runs measured red (unmapped family,
   duplicate row, version-suffix strip, legacy-only by page slug, D-id not on
-  the board, missing row, stale row).
+  the board, missing row, stale row), plus the legacy/beta double count
+  (Codex on #40), red when the legacy check is removed.
 - D-ids with no surface functions are internal (store, simulation, query
   engine, UI, CI) or have their API inside another D-id's families: D-SVC-1's
   tickets and feedback are D-API-1 CRUD, D-IAM-1's roles have no public API.
