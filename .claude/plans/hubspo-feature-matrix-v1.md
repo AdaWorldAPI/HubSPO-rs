@@ -128,6 +128,7 @@
 | 3.18 | Web analytics / tracking code | page views on contacts | tracking endpoint → activity rows | D-INT-5 | later |
 | 3.19 | Lead capture chatflows | chatbot | §4.3 | D-SVC-1 | later |
 | 3.20 | Customer journey analytics | stage sequences | report fold over ordered events | D-QRY-6 | later |
+| 3.21 | Marketing events | event objects, registrations, attendance | event rows + participation relations; attribution as a report fold | D-MKT-5 | v2 |
 
 ## 4. Service Hub
 
@@ -172,6 +173,7 @@
 | 6.12 | Datasets (reporting) | | report plans saved as data | D-QRY-6 | later |
 | 6.13 | Scheduled workflows | | schedule row; due mask on the host's periodic wake | D-FLOW-2 | v1 |
 | 6.14 | Approval steps | human gate | `WaitForInput`; GF kanban | D-FLOW-1 | v2 |
+| 6.15 | Data studio ingestion | external datasets pushed in | versioned schema-agnostic Lance ingestion, separate from object imports | D-DATA-1 | later |
 
 ## 7. Reporting
 
@@ -203,11 +205,13 @@
 | 8.11 | Data privacy (GDPR delete, export) | permanent delete + audit | delete = tombstone + dataset compaction; export accumulation-gated | D-IAM-6 | v1 |
 | 8.12 | CRM API v3 (objects, search, batch, associations v4, properties, pipelines, owners) | | `hubspo-compat` façade | D-API-1 | v2 |
 | 8.13 | OAuth apps / private app tokens | | RBAC actors with RFC 8693 delegation | D-API-3 | v2 |
-| 8.14 | App marketplace / UI extensions | | n/a for v1; a2ui ObjectSlot portals later | — | later |
+| 8.14 | App marketplace / UI extensions | | a2ui ObjectSlot portals; no React extension runtime | D-EXT-1 | later |
 | 8.15 | Mobile app | | a2ui-paint `DeviceClass::Mobile` | D-UI-1 | later |
 | 8.16 | Notifications (in-app, email) | | version deltas → notification fold | D-UI-6 | v2 |
 | 8.17 | Currencies (multi-currency, exchange rates) | | `CURRENCY_POLICY`; rate table data | D-COM-1 | v2 |
 | 8.18 | Data residency | | dataset location per tenant | D-STO-4 | later |
+| 8.19 | File manager | uploaded files, folders | façade over spear's document hub; spear owns content and versions | D-DOC-1 | v2 |
+| 8.20 | Portal limits | usage vs limits | configured tenant quotas, reported as configured | D-OPS-1 | v2 |
 
 ## 9. AI (Breeze) and enrichment
 
@@ -232,13 +236,13 @@
 |---|--:|--:|--:|--:|--:|
 | Smart CRM | 50 | 42 | 7 | 1 | 0 |
 | Sales | 25 | 15 | 6 | 4 | 0 |
-| Marketing | 20 | 0 | 11 | 7 | 2 |
+| Marketing | 21 | 0 | 12 | 7 | 2 |
 | Service | 10 | 4 | 5 | 1 | 0 |
 | Commerce | 5 | 0 | 1 | 4 | 0 |
-| Automation | 14 | 9 | 3 | 2 | 0 |
+| Automation | 15 | 9 | 3 | 3 | 0 |
 | Reporting | 8 | 6 | 2 | 0 | 0 |
-| Platform | 18 | 9 | 6 | 3 | 0 |
+| Platform | 20 | 9 | 8 | 3 | 0 |
 | AI | 10 | 2 | 4 | 4 | 0 |
-| **Total** | **160** | **87** | **45** | **26** | **2** |
+| **Total** | **164** | **87** | **48** | **27** | **2** |
 
-Counts were computed by parsing this file's rows (2026-10-10); recompute them when a row's phase changes rather than editing by hand.
+Counts were computed by parsing this file's rows (2026-10-10; recomputed 2026-10-21); recompute them when a row's phase changes rather than editing by hand.

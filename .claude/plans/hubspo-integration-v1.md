@@ -980,6 +980,7 @@ HubSpot property of the five core objects has a position (count pinned
 | D-STO-4 | Tenant layout + P-TEN-1 probe | M | D-STO-1 |
 | D-STO-5 | Property history via version log + P-HIST-1 probe | M | D-STO-1 |
 | D-STO-6 | Importer (value oracle, part 1): sandbox portal → crm-sim plan → commit; counts compared per object type | L | D-STO-3, W4-sim minimal |
+| D-DATA-1 | Schema-agnostic, versioned ingestion of structured data into Lance (incremental), separate from CRM object imports; HubSpot data-studio ingestion API on top (operator ruling 2026-10-21) | M | D-STO-1 |
 
 **Gate G2:** import of a seeded sandbox (≥ 10k contacts, 2k companies,
 3k deals, 5k engagements) reproduces record counts, association counts
@@ -1048,6 +1049,7 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | D-ONT-6 |
 | D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag. stalwart has none, and `EmailSubmission` returns empty `mdnBlobIds`/`dsnBlobIds` and `displayed: unknown`, so read and delivery receipts come from webhooks only | M | D-MAIL-3 |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | D-ACT-1 |
+| D-DOC-1 | Files API as a façade over spear's document hub: spear owns content, permissions and versions; sensitive-file access needs its own grant (operator ruling 2026-10-21) | M | D-ACT-1, D-IAM-3 |
 
 > D-MAIL-4 amended 2026-10-11: `ThreadLinker` is implemented upstream by
 > spear `RootThreads` (spear #19). D-MAIL-4 consumes spear's thread key and
@@ -1113,6 +1115,7 @@ suggestion carries truth + evidence; zero direct writes from D-INT-*.
 | D-MKT-2 | Marketing email: drag-and-drop doc IR, send to lists via stalwart bulk submission, subscription types, unsubscribe, bounce handling | XL | G6, D-QRY-2 |
 | D-MKT-3 | Campaigns + attribution (first/last/linear/U/W/time-decay as report folds over touch points) | L | D-QRY-6 |
 | D-MKT-4 | Landing pages / CMS: askama/typst render of doc IR; out of v1 beyond forms + email | — | — |
+| D-MKT-5 | Marketing events: lifecycle, registrations, attendance, attribution (operator ruling 2026-10-21) | M | D-MKT-1, D-QRY-6 |
 | D-SVC-1 | Tickets, help desk inbox, SLAs (from W7), feedback surveys (NPS/CSAT/CES) | L | G7 |
 | D-SVC-2 | Knowledge base (doc IR + search) and customer portal (RLS-scoped to the contact's company) | L | D-SVC-1 |
 | D-COM-1 | Quotes, products, line items, invoices, payments on the commerce concepts (convergence with odoo-rs) | L | G4 |
@@ -1129,6 +1132,8 @@ phase; each new surface passes both oracles for its scope.
 | D-API-3 | OAuth apps / private app tokens mapped to RBAC actors with delegation | M | D-API-1, G5 |
 | D-API-4 | Migration runbook: shadow mode (read-only mirror of a live portal, nightly diff), then cut-over | L | D-API-1, D-STO-6 |
 | D-API-5 | Contract tests: replay recorded HubSpot API traffic against the façade | L | D-API-1 |
+| D-EXT-1 | App platform: extension definitions, CRM cards, feature flags, install / uninstall lifecycle on a2ui; HubSpot's React extension runtime is not promised. Deferred (operator ruling 2026-10-21) | L | D-UI-1, D-API-3 |
+| D-OPS-1 | Tenant quotas and capacity introspection: report configured limits, never invented HubSpot defaults (operator ruling 2026-10-21) | S | D-STO-4 |
 
 **Gate G11:** a recorded integration (e.g. a sync tool's traffic) replays
 with identical responses modulo ids/timestamps.
