@@ -381,8 +381,10 @@
 | D-INT-6 | 1 | 1 | 0 | 0 | 1 |
 | **total** | 140 | 980 | 440 | 86 | 1,506 |
 
-- Coverage class per family (column 3 of the map, `ISS-SURFACE-COVERAGE-SEMANTICS`),
-  measured 2026-10-21: planned 109 families / 1,161 functions, deferred 28 /
+- Coverage class per family (column 3 of the map, `ISS-SURFACE-COVERAGE-SEMANTICS`):
+  planned, implemented, deferred, out-of-scope, unclassified. `implemented`
+  needs the D-id Shipped on STATUS_BOARD (`surface::check_board`).
+  Measured 2026-10-21: implemented 0, planned 109 families / 1,161 functions, deferred 28 /
   329 (CMS 290, app platform 22, telephony 17), out of scope 3 / 16
   (partner program, API metadata). None unclassified. The class says whether
   work is planned; implementation is the D-id's status, never the map.
@@ -390,7 +392,7 @@
   `UNPLANNED` functions: new D-MKT-5 37, D-EXT-1 22 (deferred), D-DOC-1 19,
   D-OPS-1 9, D-DATA-1 4; folded into D-FLOW-2 12, D-ONT-7 6, D-COM-1 2,
   D-QRY-6 2, D-MKT-4 5 (deferred); out of scope 16.
-- 5 mapping tests; seven disable runs measured red (unmapped family,
+- 6 mapping tests; seven disable runs measured red (unmapped family,
   duplicate row, version-suffix strip, legacy-only by page slug, D-id not on
   the board, missing row, stale row), plus the legacy/beta double count
   (Codex on #40), red when the legacy check is removed.

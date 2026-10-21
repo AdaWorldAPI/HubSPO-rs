@@ -112,7 +112,7 @@ email-analytics	D-MKT-2	planned	email statistics
 events-events	D-FLOW-2	planned	custom behavioural events (reports read them: D-QRY-6)
 events-manage-event-definitions	D-FLOW-2	planned	custom behavioural event definitions
 events-send-event-completions	D-FLOW-2	planned	custom behavioural event ingestion
-files-files	D-DOC-1	planned	Files API façade over spear
+files-files	D-DOC-1	planned	Files API compatibility in hubspo-docs over spear (content, versions, delivery are spear's)
 forms	D-MKT-1	planned	forms (legacy)
 forms-v3-legacy	D-MKT-1	planned	forms (legacy)
 marketing-aeo	D-MKT-4	deferred	answer-engine optimisation, after CMS

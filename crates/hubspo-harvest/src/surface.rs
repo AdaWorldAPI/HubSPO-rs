@@ -275,12 +275,16 @@ pub fn family(spec: &str) -> String {
 }
 
 /// What the map says about a family's place in the plan. Mapping a family
-/// to a D-id records ownership, not progress: whether the D-id is built is
-/// STATUS_BOARD's business (`ISS-SURFACE-COVERAGE-SEMANTICS`).
+/// to a D-id records ownership, not progress: a family is
+/// [`Implemented`](Coverage::Implemented) only when the map says so and the
+/// D-id is Shipped on STATUS_BOARD ([`check_board`]), never because the
+/// D-id exists (`ISS-SURFACE-COVERAGE-SEMANTICS`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Coverage {
-    /// Owned by a D-id that is in scope for this plan.
+    /// Owned by a D-id that is in scope for this plan, not yet served.
     Planned,
+    /// Served by HubSPO-rs: its D-id is Shipped.
+    Implemented,
     /// Owned by a D-id, but its work is explicitly after v1.
     Deferred,
     /// Deliberately not rebuilt; the deliverable column is [`NONE`].
@@ -295,6 +299,7 @@ impl Coverage {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Planned => "planned",
+            Self::Implemented => "implemented",
             Self::Deferred => "deferred",
             Self::OutOfScope => "out-of-scope",
             Self::Unclassified => "unclassified",
@@ -304,6 +309,7 @@ impl Coverage {
     fn parse(s: &str) -> Option<Self> {
         [
             Self::Planned,
+            Self::Implemented,
             Self::Deferred,
             Self::OutOfScope,
             Self::Unclassified,
@@ -337,7 +343,8 @@ pub const NONE: &str = "NONE";
 /// The 1-based number of the first line without four fields, with an empty
 /// field, naming a family twice, or whose deliverable does not fit its
 /// coverage: `UNPLANNED` only and always when unclassified, `NONE` only
-/// and always when out of scope, a `D-` id when planned or deferred.
+/// and always when out of scope, a `D-` id when planned, implemented or
+/// deferred.
 pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
     let mut out: Vec<MapRow> = Vec::new();
     for (i, line) in tsv.lines().enumerate().filter(|(_, l)| !l.is_empty()) {
@@ -349,7 +356,9 @@ pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
         let fits = match coverage {
             Coverage::Unclassified => deliverable == UNPLANNED,
             Coverage::OutOfScope => deliverable == NONE,
-            Coverage::Planned | Coverage::Deferred => deliverable.starts_with("D-"),
+            Coverage::Planned | Coverage::Implemented | Coverage::Deferred => {
+                deliverable.starts_with("D-")
+            }
         };
         if !fits
             || [family, deliverable, note].iter().any(|s| s.is_empty())
@@ -365,6 +374,42 @@ pub fn parse_map(tsv: &str) -> Result<Vec<MapRow>, usize> {
         });
     }
     Ok(out)
+}
+
+/// The status column of `d_id`'s row on STATUS_BOARD
+/// (`| D-id | deliverable | size | status | evidence |`), if it has a row.
+#[must_use]
+pub fn board_status<'a>(board: &'a str, d_id: &str) -> Option<&'a str> {
+    let head = format!("| {d_id} |");
+    board
+        .lines()
+        .find(|l| l.starts_with(&head))
+        .and_then(|l| l.split('|').nth(4))
+        .map(str::trim)
+}
+
+/// Check the map against STATUS_BOARD: every D-id has a row, and a family
+/// marked implemented belongs to a Shipped D-id.
+///
+/// # Errors
+///
+/// The first family that fails, with the reason.
+pub fn check_board(map: &[MapRow], board: &str) -> Result<(), String> {
+    for row in map.iter().filter(|r| r.deliverable.starts_with("D-")) {
+        let Some(status) = board_status(board, &row.deliverable) else {
+            return Err(format!(
+                "{}: {} is not on the status board",
+                row.family, row.deliverable
+            ));
+        };
+        if row.coverage == Coverage::Implemented && status != "Shipped" {
+            return Err(format!(
+                "{}: marked implemented but {} is {status}",
+                row.family, row.deliverable
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Count the surface per coverage class, in [`Coverage`] order.
@@ -719,22 +764,44 @@ mod tests {
             "a\tUNPLANNED\tout-of-scope\tn",
             "a\tD-X-1\tunclassified\tn",
             "a\tNONE\tunclassified\tn",
+            "a\tNONE\timplemented\tn",
+            "a\tUNPLANNED\timplemented\tn",
         ] {
             assert_eq!(parse_map(bad), Err(1), "{bad}");
         }
         // Accepted: each coverage with its own kind.
-        let ok = "a\tD-X-1\tplanned\tn\nb\tD-X-2\tdeferred\tn\nc\tNONE\tout-of-scope\tn\nd\tUNPLANNED\tunclassified\tn\n";
+        let ok = "a\tD-X-1\tplanned\tn\ne\tD-X-3\timplemented\tn\nb\tD-X-2\tdeferred\tn\nc\tNONE\tout-of-scope\tn\nd\tUNPLANNED\tunclassified\tn\n";
         let rows = parse_map(ok).unwrap();
         let cov: Vec<Coverage> = rows.iter().map(|r| r.coverage).collect();
         assert_eq!(
             cov,
             [
                 Coverage::Planned,
+                Coverage::Implemented,
                 Coverage::Deferred,
                 Coverage::OutOfScope,
                 Coverage::Unclassified
             ]
         );
+    }
+
+    #[test]
+    fn implemented_needs_a_shipped_deliverable() {
+        let board = "| D-X-1 | x | S | Shipped | e |\n| D-X-2 | y | M | In progress | e |\n";
+        let map = |cov: &str, d: &str| parse_map(&format!("a\t{d}\t{cov}\tn\n")).unwrap();
+        // Can fire: implemented over a D-id that is not Shipped, or not on the board.
+        assert_eq!(
+            check_board(&map("implemented", "D-X-2"), board),
+            Err("a: marked implemented but D-X-2 is In progress".to_string())
+        );
+        assert!(check_board(&map("planned", "D-X-9"), board).is_err());
+        // Stays silent: implemented over Shipped; planned over any status
+        // (a Shipped D-id does not make its API served).
+        assert_eq!(check_board(&map("implemented", "D-X-1"), board), Ok(()));
+        assert_eq!(check_board(&map("planned", "D-X-1"), board), Ok(()));
+        assert_eq!(check_board(&map("planned", "D-X-2"), board), Ok(()));
+        assert_eq!(board_status(board, "D-X-2"), Some("In progress"));
+        assert_eq!(board_status(board, "D-X"), None, "the cell, not a prefix");
     }
 
     /// The committed map covers every family of the committed surface, names
@@ -780,15 +847,7 @@ mod tests {
             ]
         );
         let board = include_str!("../../../.claude/board/STATUS_BOARD.md");
-        for row in &map {
-            if row.deliverable.starts_with("D-") {
-                assert!(
-                    board.contains(&format!("| {} |", row.deliverable)),
-                    "{} is not on the status board",
-                    row.deliverable
-                );
-            }
-        }
+        assert_eq!(check_board(&map, board), Ok(()));
     }
 
     #[test]

@@ -282,6 +282,44 @@ underneath and is never something a customer must learn.
   aliases, plan line 7). **This plan re-homes D-HUB-1/2/3/7 into HubSPO-rs
   and leaves D-HUB-4/5/6/8 in spear** (decision H-ADR-12).
 
+#### 2.5.1 Documents and delivery: what spear has (verified 2026-10-21)
+
+Read at spear `main` `c69cacb`. Three tiers, kept apart so that a type is
+never reported as a working feature:
+
+| tier | spear today | where |
+|---|---|---|
+| implemented | SHA-256 content store (`put`, `get`, `exists`, `hash`), filesystem-backed, written for message bodies | `src/content/mod.rs` |
+| implemented | mail ingest, `messages` write path, recipient placement, mailbox IAM plug | `src/mail/` |
+| type only | `UploadIntent` (correlation id, tenant, `DriveScope`, folder, file name, size, content hash, conflict policy, pipeline) | `src/sharepoint/intent.rs` |
+| type only | `DriveScope` with `Me`, `DriveId`, `SiteDrive` (`Simaf`, `Abap` reserved) | `src/sharepoint/drive_scope.rs` |
+| stub | Microsoft Graph transport (empty module) | `src/sharepoint/transport/mod.rs` |
+| planned, not built | `DeliveryIntent`, user-drive addressing (`DriveScopeKind::User`), directory GUID → Entra id, delivery RBAC through `mail::iam`, Graph `PUT` / upload session, `send_receipts` with delivery states, consumer API docs | `.claude/plans/onedrive-delivery-v1.md` D-DELIVER-1..6, 8 ("Nothing in this plan is built yet") |
+| planned, not built | `activity` and `send_receipts` tables keyed `(tenant_id, correlation_id)` | spear D-HUB-4/5, D-CONFIRM-1 |
+| missing, not planned | document records (metadata, folder, provenance, version) over the content store; a document reference type a consumer can hold; document authorization (the IAM plug covers `email` only) | `ISS-SPEAR-DOCUMENT-CONTRACTS` |
+
+HubSPO-rs claims none of this as working. **D-DOC-1** (HubSpot Files API)
+is a compatibility and orchestration deliverable in `hubspo-docs`. It does
+not build a content store, a version history, a SharePoint/OneDrive or
+Graph client, an authorization model for documents or a receipt model;
+spear owns all of them. A CRM record references a document; it never holds
+a second copy unless a separately authorized operation creates one. The
+three flows it composes:
+
+1. **Ingest.** Files API request → HubSPO-rs validation and RBAC → spear
+   content/document API → document reference → association on the CRM
+   record (D-STO-3 relation).
+2. **Delivery.** CRM `ActionDef` / workflow step → spear `DeliveryIntent`
+   → spear authorization → directory GUID resolution → Graph transport →
+   spear receipt and `activity` row → HubSPO-rs timeline (D-UI).
+3. **Lookup.** CRM record → association → authorized spear document
+   metadata → permitted retrieval or link.
+
+Files API operations are served only as far as spear's API supports them.
+Today that is none: the content store has no document record, folder or
+authorization, so D-DOC-1 waits on the spear contracts in
+`ISS-SPEAR-DOCUMENT-CONTRACTS` and on D-DELIVER-2..6 for delivery.
+
 ### 2.6 stalwart (mail server, out of process)
 
 - AdaWorldAPI fork of Stalwart 0.16.25. Only fork change: a feature-gated
@@ -1049,7 +1087,7 @@ fixture users; RLS registry runs sealed; a fail-open registry fails a test.
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | D-ONT-6 |
 | D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag. stalwart has none, and `EmailSubmission` returns empty `mdnBlobIds`/`dsnBlobIds` and `displayed: unknown`, so read and delivery receipts come from webhooks only | M | D-MAIL-3 |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | D-ACT-1 |
-| D-DOC-1 | Files API as a façade over spear's document hub: spear owns content, permissions and versions; sensitive-file access needs its own grant (operator ruling 2026-10-21) | M | D-ACT-1, D-IAM-3 |
+| D-DOC-1 | HubSpot Files API compatibility in `hubspo-docs` over spear (§2.5.1): ingest, delivery and lookup flows; no second content store, version history, Graph client, authorization or receipt model; serves only what spear's API supports (operator ruling 2026-10-21) | M | D-ACT-1, D-IAM-3, D-STO-3; spear `ISS-SPEAR-DOCUMENT-CONTRACTS`, D-DELIVER-2..6 |
 
 > D-MAIL-4 amended 2026-10-11: `ThreadLinker` is implemented upstream by
 > spear `RootThreads` (spear #19). D-MAIL-4 consumes spear's thread key and

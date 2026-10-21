@@ -93,7 +93,7 @@
 | D-MAIL-8 | Templates, snippets, personalisation tokens (askama-compiled, validated against the ClassView) | M | Queued |  |
 | D-MAIL-9 | Open / click tracking endpoints + bot/MPP heuristic flag | M | Queued |  |
 | D-MAIL-10 | Calls: telephony is out of scope for v1 beyond call *logging* engagements; spear D-TELEPHONY reuse later | S | Queued | 2026-10-21: the telephony API families (`crm-calling-extensions`, `crm-transcriptions`; 17 functions) are deferred in the surface map; call logging stays planned under D-API-1 CRUD. |
-| D-DOC-1 | HubSpot Files API as a façade over spear's document hub. spear owns content, permissions and versions; sensitive-file access needs its own grant, never a generic document read | M | Queued | Operator ruling 2026-10-21 (`ISS-SURFACE-UNPLANNED`). Surface: `files-files`, 19 functions |
+| D-DOC-1 | HubSpot Files API compatibility in `hubspo-docs` over spear: ingest, delivery and lookup flows (plan §2.5.1). No second content store, version history, Graph client, authorization or receipt model | M | Blocked | Operator ruling 2026-10-21 (`ISS-SURFACE-UNPLANNED`). Surface: `files-files`, 19 functions. Waits on spear: document records, references and authorization (`ISS-SPEAR-DOCUMENT-CONTRACTS`, not planned there yet) and D-DELIVER-2..6 (planned, not built). spear verified at `c69cacb`: content store implemented; `UploadIntent`/`DriveScope` types only; Graph transport a stub. |
 
 ## Wave 7 — Automation: workflows, sequences, SLAs
 
