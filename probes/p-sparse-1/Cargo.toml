@@ -9,9 +9,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
-# Floated with lance-graph's family (lance 13 / lancedb 0.40 / arrow 58).
-lance = { version = "13.*", default-features = false }
-lance-index = { version = "13.*", default-features = false }
+# Floated with lance-graph's family (lance 14 / lancedb 0.41 / arrow 58).
+lance = { version = "14.*", default-features = false }
+lance-index = { version = "14.*", default-features = false }
 arrow = "58"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 futures = "0.3"
